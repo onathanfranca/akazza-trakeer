@@ -1,5 +1,4 @@
 // src/hooks/useCPAs.js
-// Hook para CPAs do usuário logado — Realtime via onSnapshot (Firestore)
 import { useEffect, useState } from 'react';
 import {
   collection, query, where, orderBy,
@@ -35,13 +34,15 @@ export function useCPAs(uid, dateFrom, dateTo) {
     return unsub;
   }, [uid, dateFrom, dateTo]);
 
-  async function addCPA(casa, player = '') {
-    return addDoc(collection(db, 'cpas'), {
+  async function addCPA(casa, player = '', comprovante = null) {
+    const data = {
       uid,
       casa,
       player,
       createdAt: serverTimestamp(),
-    });
+    };
+    if (comprovante) data.comprovante = comprovante;
+    return addDoc(collection(db, 'cpas'), data);
   }
 
   async function removeCPA(id) {

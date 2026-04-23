@@ -1,5 +1,5 @@
 // src/pages/MeuPainel.js
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { useCPAs } from '../hooks/useCPAs';
@@ -19,18 +19,21 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   const [selectedCasa, setSelectedCasa] = useState('');
   const [player, setPlayer] = useState('');
+  const [comprovante, setComprovante] = useState(null);
+  const [comprovantePreview, setComprovantePreview] = useState(null);
   const [adding, setAdding] = useState(false);
   const [filterCasa, setFilterCasa] = useState('Todas');
   const [editingId, setEditingId] = useState(null);
   const [editNome, setEditNome] = useState('');
   const [editCasaVal, setEditCasaVal] = useState('');
+  const [viewingImg, setViewingImg] = useState(null);
+  const fileRef = useRef();
 
   const filteredCPAs = useMemo(() =>
     filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa),
     [cpas, filterCasa]
   );
 
-  // Compute financials
   const stats = useMemo(() => {
     let faturamento = 0, custo = 0;
     cpas.forEach(c => {
@@ -42,12 +45,43 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   const pct = Math.min((stats.total / (metaDiaria || 50)) * 100, 100);
 
+  function handleFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = (h * MAX) / w; w = MAX; }
+        if (h > MAX) { w = (w * MAX) / h; h = MAX; }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const base64 = canvas.toDataURL('image/jpeg', 0.7);
+        setComprovante(base64);
+        setComprovantePreview(base64);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearComprovante() {
+    setComprovante(null);
+    setComprovantePreview(null);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
   async function handleAdd() {
     if (!selectedCasa) { showToast('⚠️ Selecione uma casa!', 'yellow'); return; }
     setAdding(true);
     try {
-      await addCPA(selectedCasa, player);
+      await addCPA(selectedCasa, player, comprovante);
       setPlayer('');
+      clearComprovante();
       showCPAToast();
     } catch { showToast('Erro ao registrar CPA.', 'red'); }
     setAdding(false);
@@ -82,6 +116,21 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   return (
     <div className="fade-in">
+      {/* Lightbox */}
+      {viewingImg && (
+        <div onClick={() => setViewingImg(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)',
+          zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16
+        }}>
+          <img src={viewingImg} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
+          <button onClick={() => setViewingImg(null)} style={{
+            position: 'absolute', top: 16, right: 16, background: 'var(--accent)',
+            border: 'none', borderRadius: '50%', width: 36, height: 36,
+            color: '#fff', fontSize: 18, cursor: 'pointer'
+          }}>✕</button>
+        </div>
+      )}
+
       {/* Date Filter */}
       <div className="date-filter">
         <label>De</label>
@@ -125,7 +174,29 @@ export default function MeuPainel({ casas, metaDiaria }) {
           </select>
           <input className="input-field" type="text" placeholder="Nome do player (opcional)" value={player} onChange={e => setPlayer(e.target.value)} />
         </div>
-        <button className="btn-primary btn-full" onClick={handleAdd} disabled={adding}>
+
+        {/* Upload comprovante */}
+        <div style={{ marginTop: 10 }}>
+          {!comprovantePreview ? (
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              padding: '9px 14px', borderRadius: 8, border: '1.5px dashed var(--border)',
+              color: 'var(--text-muted)', fontSize: 13
+            }}>
+              📎 Anexar comprovante Pix (opcional)
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+            </label>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <img src={comprovantePreview} alt="preview" onClick={() => setViewingImg(comprovantePreview)}
+                style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Comprovante anexado ✅</span>
+              <button onClick={clearComprovante} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+            </div>
+          )}
+        </div>
+
+        <button className="btn-primary btn-full" style={{ marginTop: 12 }} onClick={handleAdd} disabled={adding}>
           {adding ? 'Registrando...' : '+ Registrar CPA'}
         </button>
       </div>
@@ -133,9 +204,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
       {/* Filter chips */}
       <div className="chips">
         {['Todas', ...casas.map(c => c.nome)].map(nome => (
-          <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>
-            {nome}
-          </div>
+          <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>{nome}</div>
         ))}
       </div>
 
@@ -152,11 +221,16 @@ export default function MeuPainel({ casas, metaDiaria }) {
             return (
               <div key={cpa.id}>
                 <div className="cpa-item">
+                  {cpa.comprovante && (
+                    <img src={cpa.comprovante} alt="comprovante" onClick={() => setViewingImg(cpa.comprovante)}
+                      style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', flexShrink: 0, border: '1.5px solid var(--accent)' }} />
+                  )}
                   <div className="cpa-info">
                     <div className="cpa-nome">{cpa.player || 'CPA sem nome'}</div>
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>
+                      {cpa.comprovante && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 comprovante</span>}
                     </div>
                   </div>
                   <div className="cpa-actions">
