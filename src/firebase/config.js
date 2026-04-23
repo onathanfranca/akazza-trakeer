@@ -4,7 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCHV8uvoPsgUbG8b9tAnYqLtT4KL89tWKQ",
+  apiKey: "AIzaSyCHV0uvoPsgUbGBb9tAnYqLtT6KL89tWKQ",
   authDomain: "akazzatracker.firebaseapp.com",
   projectId: "akazzatracker",
   storageBucket: "akazzatracker.firebasestorage.app",
