@@ -40,14 +40,17 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   const [selectedCasa, setSelectedCasa] = useState('');
   const [player, setPlayer] = useState('');
-  const [comprovantes, setComprovantes] = useState([]); // array de base64, max 4
+  const [comprovantes, setComprovantes] = useState([]);
   const [adding, setAdding] = useState(false);
   const [filterCasa, setFilterCasa] = useState('Todas');
   const [editingId, setEditingId] = useState(null);
   const [editNome, setEditNome] = useState('');
   const [editCasaVal, setEditCasaVal] = useState('');
+  const [editImgs, setEditImgs] = useState([]); // imagens em edição
+  const [savingImgs, setSavingImgs] = useState(false);
   const [viewingImg, setViewingImg] = useState(null);
   const fileRef = useRef();
+  const editFileRef = useRef();
 
   const filteredCPAs = useMemo(() =>
     filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa),
@@ -69,8 +72,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
     const files = Array.from(e.target.files);
     const remaining = 4 - comprovantes.length;
     if (remaining <= 0) { showToast('Máximo de 4 comprovantes!', 'yellow'); return; }
-    const toProcess = files.slice(0, remaining);
-    const compressed = await Promise.all(toProcess.map(compressImage));
+    const compressed = await Promise.all(files.slice(0, remaining).map(compressImage));
     setComprovantes(prev => [...prev, ...compressed]);
     if (fileRef.current) fileRef.current.value = '';
   }
@@ -96,18 +98,51 @@ export default function MeuPainel({ casas, metaDiaria }) {
     catch { showToast('Erro ao remover.', 'red'); }
   }
 
+  function getComprovantes(cpa) {
+    if (cpa.comprovantes?.length > 0) return cpa.comprovantes;
+    if (cpa.comprovante) return [cpa.comprovante];
+    return [];
+  }
+
   function startEdit(cpa) {
     setEditingId(cpa.id);
     setEditNome(cpa.player || '');
     setEditCasaVal(cpa.casa);
+    setEditImgs(getComprovantes(cpa));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditImgs([]);
+    if (editFileRef.current) editFileRef.current.value = '';
+  }
+
+  async function handleEditFileChange(e) {
+    const files = Array.from(e.target.files);
+    const remaining = 4 - editImgs.length;
+    if (remaining <= 0) { showToast('Máximo de 4 comprovantes!', 'yellow'); return; }
+    const compressed = await Promise.all(files.slice(0, remaining).map(compressImage));
+    setEditImgs(prev => [...prev, ...compressed]);
+    if (editFileRef.current) editFileRef.current.value = '';
+  }
+
+  function removeEditImg(idx) {
+    setEditImgs(prev => prev.filter((_, i) => i !== idx));
   }
 
   async function handleSaveEdit(id) {
+    setSavingImgs(true);
     try {
-      await editCPA(id, { player: editNome, casa: editCasaVal });
+      await editCPA(id, {
+        player: editNome,
+        casa: editCasaVal,
+        comprovantes: editImgs,
+        comprovante: null, // limpa campo legado
+      });
       showToast('✅ CPA atualizado!', 'green');
-      setEditingId(null);
+      cancelEdit();
     } catch { showToast('Erro ao atualizar.', 'red'); }
+    setSavingImgs(false);
   }
 
   function formatTime(ts) {
@@ -117,13 +152,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
   }
 
   function fmt(n) { return `R$ ${n.toLocaleString('pt-BR')}`; }
-
-  // Compatibilidade: suporta campo antigo comprovante (string) e novo comprovantes (array)
-  function getComprovantes(cpa) {
-    if (cpa.comprovantes && cpa.comprovantes.length > 0) return cpa.comprovantes;
-    if (cpa.comprovante) return [cpa.comprovante];
-    return [];
-  }
 
   return (
     <div className="fade-in">
@@ -186,14 +214,12 @@ export default function MeuPainel({ casas, metaDiaria }) {
           <input className="input-field" type="text" placeholder="Nome do player (opcional)" value={player} onChange={e => setPlayer(e.target.value)} />
         </div>
 
-        {/* Upload comprovantes */}
         <div style={{ marginTop: 10 }}>
-          {/* Thumbnails */}
           {comprovantes.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               {comprovantes.map((img, idx) => (
                 <div key={idx} style={{ position: 'relative' }}>
-                  <img src={img} alt={`comprovante ${idx+1}`} onClick={() => setViewingImg(img)}
+                  <img src={img} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
                     style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
                   <button onClick={() => removeComprovante(idx)} style={{
                     position: 'absolute', top: -6, right: -6, background: 'var(--accent)',
@@ -204,9 +230,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
               ))}
             </div>
           )}
-
-          {/* Botão adicionar */}
-          {comprovantes.length < 4 && (
+          {comprovantes.length < 4 ? (
             <label style={{
               display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
               padding: '9px 14px', borderRadius: 8, border: '1.5px dashed var(--border)',
@@ -215,9 +239,8 @@ export default function MeuPainel({ casas, metaDiaria }) {
               📎 {comprovantes.length === 0 ? 'Anexar comprovante(s) Pix' : `Adicionar mais (${comprovantes.length}/4)`}
               <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
             </label>
-          )}
-          {comprovantes.length === 4 && (
-            <span style={{ fontSize: 12, color: 'var(--green)' }}>✅ Máximo de 4 comprovantes anexados</span>
+          ) : (
+            <span style={{ fontSize: 12, color: 'var(--green)' }}>✅ Máximo de 4 comprovantes</span>
           )}
         </div>
 
@@ -244,14 +267,15 @@ export default function MeuPainel({ casas, metaDiaria }) {
           {filteredCPAs.map(cpa => {
             const casa = casas.find(c => c.nome === cpa.casa);
             const imgs = getComprovantes(cpa);
+            const isEditing = editingId === cpa.id;
             return (
               <div key={cpa.id}>
                 <div className="cpa-item">
-                  {/* Thumbnails no histórico */}
-                  {imgs.length > 0 && (
+                  {/* Thumbnails */}
+                  {!isEditing && imgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                       {imgs.map((img, idx) => (
-                        <img key={idx} src={img} alt="comprovante" onClick={() => setViewingImg(img)}
+                        <img key={idx} src={img} alt="comp" onClick={() => setViewingImg(img)}
                           style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1.5px solid var(--accent)' }} />
                       ))}
                     </div>
@@ -261,30 +285,67 @@ export default function MeuPainel({ casas, metaDiaria }) {
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>
-                      {imgs.length > 0 && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 {imgs.length} comprovante{imgs.length > 1 ? 's' : ''}</span>}
+                      {imgs.length > 0 && !isEditing && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 {imgs.length}</span>}
                     </div>
                   </div>
                   <div className="cpa-actions">
                     <span className="cpa-valor">{casa ? fmt(casa.valor) : '--'}</span>
-                    <button className="btn-icon" onClick={() => editingId === cpa.id ? setEditingId(null) : startEdit(cpa)}>✏️</button>
+                    <button className="btn-icon" onClick={() => isEditing ? cancelEdit() : startEdit(cpa)}>✏️</button>
                     <button className="btn-danger" onClick={() => handleRemove(cpa.id)}>✕</button>
                   </div>
                 </div>
-                {editingId === cpa.id && (
-                  <div className="cpa-edit-row">
-                    <div style={{ flex: 1, minWidth: 120 }}>
-                      <div className="input-small-label">Nome do player</div>
-                      <input className="input-edit" value={editNome} onChange={e => setEditNome(e.target.value)} placeholder="Nome do player" />
+
+                {/* Painel de edição */}
+                {isEditing && (
+                  <div className="cpa-edit-row" style={{ flexDirection: 'column', gap: 12 }}>
+                    {/* Nome + Casa */}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 120 }}>
+                        <div className="input-small-label">Nome do player</div>
+                        <input className="input-edit" value={editNome} onChange={e => setEditNome(e.target.value)} placeholder="Nome do player" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 120 }}>
+                        <div className="input-small-label">Casa</div>
+                        <select className="input-edit" value={editCasaVal} onChange={e => setEditCasaVal(e.target.value)}>
+                          {casas.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
+                        </select>
+                      </div>
                     </div>
-                    <div style={{ flex: 1, minWidth: 120 }}>
-                      <div className="input-small-label">Casa</div>
-                      <select className="input-edit" style={{ cursor: 'pointer' }} value={editCasaVal} onChange={e => setEditCasaVal(e.target.value)}>
-                        {casas.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
-                      </select>
+
+                    {/* Edição de imagens */}
+                    <div>
+                      <div className="input-small-label">Comprovantes ({editImgs.length}/4)</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                        {editImgs.map((img, idx) => (
+                          <div key={idx} style={{ position: 'relative' }}>
+                            <img src={img} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
+                              style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
+                            <button onClick={() => removeEditImg(idx)} style={{
+                              position: 'absolute', top: -6, right: -6, background: '#e53',
+                              border: 'none', borderRadius: '50%', width: 20, height: 20,
+                              color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0
+                            }}>✕</button>
+                          </div>
+                        ))}
+                        {editImgs.length < 4 && (
+                          <label style={{
+                            width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22
+                          }}>
+                            +
+                            <input ref={editFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleEditFileChange} />
+                          </label>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-                      <button className="btn-save" style={{ padding: '7px 14px', fontSize: 12 }} onClick={() => handleSaveEdit(cpa.id)}>Salvar</button>
-                      <button className="btn-secondary" style={{ padding: '7px 10px', fontSize: 12 }} onClick={() => setEditingId(null)}>Cancelar</button>
+
+                    {/* Botões */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn-save" style={{ padding: '7px 14px', fontSize: 12 }} onClick={() => handleSaveEdit(cpa.id)} disabled={savingImgs}>
+                        {savingImgs ? 'Salvando...' : 'Salvar'}
+                      </button>
+                      <button className="btn-secondary" style={{ padding: '7px 10px', fontSize: 12 }} onClick={cancelEdit}>Cancelar</button>
                     </div>
                   </div>
                 )}
