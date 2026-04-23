@@ -6,7 +6,7 @@ import {
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();
@@ -26,12 +26,12 @@ export function AuthProvider({ children }) {
 
   async function register(email, password, nome) {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-    // Cria perfil no Firestore
     await setDoc(doc(db, 'users', cred.user.uid), {
       uid: cred.user.uid,
       nome,
       email,
-      role: 'afiliado', // padrão — admin muda manualmente
+      role: 'afiliado',
+      foto: null,
       createdAt: serverTimestamp(),
     });
     return cred;
@@ -47,6 +47,11 @@ export function AuthProvider({ children }) {
     if (snap.exists()) {
       setUserProfile(snap.data());
     }
+  }
+
+  async function updateProfile(uid, data) {
+    await updateDoc(doc(db, 'users', uid), data);
+    setUserProfile(prev => ({ ...prev, ...data }));
   }
 
   useEffect(() => {
@@ -69,6 +74,7 @@ export function AuthProvider({ children }) {
     register,
     logout,
     fetchUserProfile,
+    updateProfile,
     isAdmin: userProfile?.role === 'admin',
   };
 

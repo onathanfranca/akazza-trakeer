@@ -8,6 +8,21 @@ function today() { return format(new Date(), 'yyyy-MM-dd'); }
 const MEDALS = ['🥇', '🥈', '🥉'];
 const MEDAL_CLASSES = ['gold', 'silver', 'bronze'];
 
+function Avatar({ foto, nome, size = 36 }) {
+  if (foto) return (
+    <img src={foto} alt="avatar" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)', flexShrink: 0 }} />
+  );
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', background: 'var(--card)',
+      border: '2px solid var(--accent)', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', fontSize: size * 0.4, color: 'var(--text-muted)', flexShrink: 0
+    }}>
+      {(nome || '?')[0].toUpperCase()}
+    </div>
+  );
+}
+
 export default function Ranking({ casas, users }) {
   const [dateFrom, setDateFrom] = useState(today());
   const [dateTo, setDateTo] = useState(today());
@@ -22,7 +37,7 @@ export default function Ranking({ casas, users }) {
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
-      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, count: 0, faturamento: 0, lucro: 0 };
+      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, count: 0, faturamento: 0, lucro: 0 };
       const casa = casas.find(c => c.nome === cpa.casa);
       map[cpa.uid].count++;
       if (casa) { map[cpa.uid].faturamento += casa.valor; map[cpa.uid].lucro += (casa.valor - casa.custo); }
@@ -63,6 +78,7 @@ export default function Ranking({ casas, users }) {
               <div className={`rank-pos${i < 3 ? ` ${MEDAL_CLASSES[i]}` : ''}`}>
                 {i < 3 ? MEDALS[i] : i + 1}
               </div>
+              <Avatar foto={aff.foto} nome={aff.nome} size={36} />
               <div className="rank-info">
                 <div className="rank-nome">{aff.nome}</div>
                 <div className="rank-sub">Fat: {fmt(aff.faturamento)} • Lucro: {fmt(aff.lucro)}</div>

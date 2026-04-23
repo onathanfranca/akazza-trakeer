@@ -10,10 +10,27 @@ import Ranking from './pages/Ranking';
 import MeuPainel from './pages/MeuPainel';
 import Gerenciar from './pages/Gerenciar';
 import Config from './pages/Config';
+import Perfil from './pages/Perfil';
 
 import './styles/global.css';
 
-// ── Inner app (after auth) ─────────────────────────────────────────────────
+function Avatar({ foto, nome, size = 32 }) {
+  if (foto) return (
+    <img src={foto} alt="avatar" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)', flexShrink: 0 }} />
+  );
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', background: 'var(--card)',
+      border: '2px solid var(--accent)', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', fontSize: size * 0.4, color: 'var(--text-muted)', flexShrink: 0
+    }}>
+      {(nome || '?')[0].toUpperCase()}
+    </div>
+  );
+}
+
+export { Avatar };
+
 function AppInner() {
   const { currentUser, userProfile, logout, isAdmin } = useAuth();
   const { users, updateRole, removeUser } = useUsers();
@@ -26,7 +43,6 @@ function AppInner() {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   }, [dark]);
 
-  // Reset tab when role changes
   useEffect(() => {
     if (!isAdmin && (tab === 'admin' || tab === 'gerenciar' || tab === 'config')) {
       setTab('meu');
@@ -39,11 +55,13 @@ function AppInner() {
     { id: 'meu', label: '🏠 Meu Painel' },
     { id: 'gerenciar', label: '👥 Afiliados' },
     { id: 'config', label: '⚙️ Config' },
+    { id: 'perfil', label: '👤 Perfil' },
   ];
 
   const AFF_TABS = [
     { id: 'meu', label: '🏠 Meu Painel' },
     { id: 'ranking', label: '🏆 Ranking' },
+    { id: 'perfil', label: '👤 Perfil' },
   ];
 
   const tabs = isAdmin ? ADMIN_TABS : AFF_TABS;
@@ -53,6 +71,10 @@ function AppInner() {
       <header className="header">
         <div className="logo" onClick={() => setTab(isAdmin ? 'admin' : 'meu')}>⚡ AKAZZA <span>TRACKER</span></div>
         <div className="header-right">
+          {/* Avatar clicável para ir ao perfil */}
+          <div style={{ cursor: 'pointer' }} onClick={() => setTab('perfil')} title="Meu Perfil">
+            <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={34} />
+          </div>
           <div className="user-badge">
             <strong>{userProfile?.nome || currentUser?.email}</strong>
             {isAdmin && <span className="admin-pill">ADMIN</span>}
@@ -91,18 +113,19 @@ function AppInner() {
         {tab === 'config' && isAdmin && (
           <Config config={config} saveConfig={saveConfig} />
         )}
+        {tab === 'perfil' && (
+          <Perfil />
+        )}
       </main>
     </div>
   );
 }
 
-// ── Auth gate ──────────────────────────────────────────────────────────────
 function AppGate() {
   const { currentUser } = useAuth();
   return currentUser ? <AppInner /> : <AuthPage />;
 }
 
-// ── Root ───────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <AuthProvider>

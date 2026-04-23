@@ -34,14 +34,14 @@ export function useCPAs(uid, dateFrom, dateTo) {
     return unsub;
   }, [uid, dateFrom, dateTo]);
 
-  async function addCPA(casa, player = '', comprovante = null) {
+  async function addCPA(casa, player = '', comprovantes = []) {
     const data = {
       uid,
       casa,
       player,
       createdAt: serverTimestamp(),
     };
-    if (comprovante) data.comprovante = comprovante;
+    if (comprovantes && comprovantes.length > 0) data.comprovantes = comprovantes;
     return addDoc(collection(db, 'cpas'), data);
   }
 

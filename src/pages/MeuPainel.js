@@ -7,6 +7,27 @@ import { useToast } from '../context/ToastContext';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = (h * MAX) / w; w = MAX; }
+        if (h > MAX) { w = (w * MAX) / h; h = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function MeuPainel({ casas, metaDiaria }) {
   const { currentUser } = useAuth();
   const { showCPAToast, showToast } = useToast();
@@ -19,8 +40,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   const [selectedCasa, setSelectedCasa] = useState('');
   const [player, setPlayer] = useState('');
-  const [comprovante, setComprovante] = useState(null);
-  const [comprovantePreview, setComprovantePreview] = useState(null);
+  const [comprovantes, setComprovantes] = useState([]); // array de base64, max 4
   const [adding, setAdding] = useState(false);
   const [filterCasa, setFilterCasa] = useState('Todas');
   const [editingId, setEditingId] = useState(null);
@@ -45,43 +65,27 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   const pct = Math.min((stats.total / (metaDiaria || 50)) * 100, 100);
 
-  function handleFileChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX = 800;
-        let w = img.width, h = img.height;
-        if (w > MAX) { h = (h * MAX) / w; w = MAX; }
-        if (h > MAX) { w = (w * MAX) / h; h = MAX; }
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        const base64 = canvas.toDataURL('image/jpeg', 0.7);
-        setComprovante(base64);
-        setComprovantePreview(base64);
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+  async function handleFileChange(e) {
+    const files = Array.from(e.target.files);
+    const remaining = 4 - comprovantes.length;
+    if (remaining <= 0) { showToast('Máximo de 4 comprovantes!', 'yellow'); return; }
+    const toProcess = files.slice(0, remaining);
+    const compressed = await Promise.all(toProcess.map(compressImage));
+    setComprovantes(prev => [...prev, ...compressed]);
+    if (fileRef.current) fileRef.current.value = '';
   }
 
-  function clearComprovante() {
-    setComprovante(null);
-    setComprovantePreview(null);
-    if (fileRef.current) fileRef.current.value = '';
+  function removeComprovante(idx) {
+    setComprovantes(prev => prev.filter((_, i) => i !== idx));
   }
 
   async function handleAdd() {
     if (!selectedCasa) { showToast('⚠️ Selecione uma casa!', 'yellow'); return; }
     setAdding(true);
     try {
-      await addCPA(selectedCasa, player, comprovante);
+      await addCPA(selectedCasa, player, comprovantes);
       setPlayer('');
-      clearComprovante();
+      setComprovantes([]);
       showCPAToast();
     } catch { showToast('Erro ao registrar CPA.', 'red'); }
     setAdding(false);
@@ -113,6 +117,13 @@ export default function MeuPainel({ casas, metaDiaria }) {
   }
 
   function fmt(n) { return `R$ ${n.toLocaleString('pt-BR')}`; }
+
+  // Compatibilidade: suporta campo antigo comprovante (string) e novo comprovantes (array)
+  function getComprovantes(cpa) {
+    if (cpa.comprovantes && cpa.comprovantes.length > 0) return cpa.comprovantes;
+    if (cpa.comprovante) return [cpa.comprovante];
+    return [];
+  }
 
   return (
     <div className="fade-in">
@@ -175,24 +186,38 @@ export default function MeuPainel({ casas, metaDiaria }) {
           <input className="input-field" type="text" placeholder="Nome do player (opcional)" value={player} onChange={e => setPlayer(e.target.value)} />
         </div>
 
-        {/* Upload comprovante */}
+        {/* Upload comprovantes */}
         <div style={{ marginTop: 10 }}>
-          {!comprovantePreview ? (
+          {/* Thumbnails */}
+          {comprovantes.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              {comprovantes.map((img, idx) => (
+                <div key={idx} style={{ position: 'relative' }}>
+                  <img src={img} alt={`comprovante ${idx+1}`} onClick={() => setViewingImg(img)}
+                    style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
+                  <button onClick={() => removeComprovante(idx)} style={{
+                    position: 'absolute', top: -6, right: -6, background: 'var(--accent)',
+                    border: 'none', borderRadius: '50%', width: 20, height: 20,
+                    color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0
+                  }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Botão adicionar */}
+          {comprovantes.length < 4 && (
             <label style={{
-              display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
               padding: '9px 14px', borderRadius: 8, border: '1.5px dashed var(--border)',
               color: 'var(--text-muted)', fontSize: 13
             }}>
-              📎 Anexar comprovante Pix (opcional)
-              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+              📎 {comprovantes.length === 0 ? 'Anexar comprovante(s) Pix' : `Adicionar mais (${comprovantes.length}/4)`}
+              <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
             </label>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <img src={comprovantePreview} alt="preview" onClick={() => setViewingImg(comprovantePreview)}
-                style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Comprovante anexado ✅</span>
-              <button onClick={clearComprovante} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 18 }}>✕</button>
-            </div>
+          )}
+          {comprovantes.length === 4 && (
+            <span style={{ fontSize: 12, color: 'var(--green)' }}>✅ Máximo de 4 comprovantes anexados</span>
           )}
         </div>
 
@@ -218,19 +243,25 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="cpa-list">
           {filteredCPAs.map(cpa => {
             const casa = casas.find(c => c.nome === cpa.casa);
+            const imgs = getComprovantes(cpa);
             return (
               <div key={cpa.id}>
                 <div className="cpa-item">
-                  {cpa.comprovante && (
-                    <img src={cpa.comprovante} alt="comprovante" onClick={() => setViewingImg(cpa.comprovante)}
-                      style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', flexShrink: 0, border: '1.5px solid var(--accent)' }} />
+                  {/* Thumbnails no histórico */}
+                  {imgs.length > 0 && (
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      {imgs.map((img, idx) => (
+                        <img key={idx} src={img} alt="comprovante" onClick={() => setViewingImg(img)}
+                          style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1.5px solid var(--accent)' }} />
+                      ))}
+                    </div>
                   )}
                   <div className="cpa-info">
                     <div className="cpa-nome">{cpa.player || 'CPA sem nome'}</div>
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>
-                      {cpa.comprovante && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 comprovante</span>}
+                      {imgs.length > 0 && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 {imgs.length} comprovante{imgs.length > 1 ? 's' : ''}</span>}
                     </div>
                   </div>
                   <div className="cpa-actions">
