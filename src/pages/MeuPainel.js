@@ -28,16 +28,19 @@ function compressImage(file) {
   });
 }
 
-// Pega valor afiliado com fallback para campo legado
-function getValorAfiliado(casa) {
+// Retorna valor e custo corretos baseado no role do usuário
+function getValor(casa, isAdmin) {
+  if (isAdmin) return casa?.valorAdmin ?? casa?.valor ?? 0;
   return casa?.valorAfiliado ?? casa?.valor ?? 0;
 }
-function getCustoAfiliado(casa) {
+function getCusto(casa, isAdmin) {
+  if (isAdmin) return casa?.custoAdmin ?? casa?.custo ?? 0;
   return casa?.custoAfiliado ?? casa?.custo ?? 0;
 }
 
 export default function MeuPainel({ casas, metaDiaria }) {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'admin';
   const { showCPAToast, showToast } = useToast();
 
   const [dateFrom, setDateFrom] = useState(today());
@@ -69,10 +72,13 @@ export default function MeuPainel({ casas, metaDiaria }) {
     let faturamento = 0, custo = 0;
     cpas.forEach(c => {
       const casa = casas.find(x => x.nome === c.casa);
-      if (casa) { faturamento += getValorAfiliado(casa); custo += getCustoAfiliado(casa); }
+      if (casa) {
+        faturamento += getValor(casa, isAdmin);
+        custo += getCusto(casa, isAdmin);
+      }
     });
     return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
-  }, [cpas, casas]);
+  }, [cpas, casas, isAdmin]);
 
   const pct = Math.min((stats.total / (metaDiaria || 50)) * 100, 100);
 
@@ -160,11 +166,9 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   return (
     <div className="fade-in">
-      {/* Lightbox */}
       {viewingImg && (
         <div onClick={() => setViewingImg(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <img src={viewingImg} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
-          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 18, cursor: 'pointer' }}>✕</button>
         </div>
       )}
 
@@ -198,7 +202,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       </div>
 
-      {/* Add CPA */}
       <div className="add-box">
         <div className="add-title">➕ Registrar CPA</div>
         <div className="add-grid">
@@ -216,8 +219,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
             {!depositante.trim() && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--accent)' }}>obrigatório</span>}
           </div>
         </div>
-
-        {/* Comprovantes — obrigatório */}
         <div style={{ marginTop: 10 }}>
           {comprovantes.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -231,12 +232,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
             </div>
           )}
           {comprovantes.length < 4 ? (
-            <label style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-              padding: '9px 14px', borderRadius: 8,
-              border: `1.5px dashed ${comprovantes.length === 0 ? 'var(--accent)' : 'var(--border)'}`,
-              color: comprovantes.length === 0 ? 'var(--accent)' : 'var(--text-muted)', fontSize: 13
-            }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '9px 14px', borderRadius: 8, border: `1.5px dashed ${comprovantes.length === 0 ? 'var(--accent)' : 'var(--border)'}`, color: comprovantes.length === 0 ? 'var(--accent)' : 'var(--muted)', fontSize: 13 }}>
               📎 {comprovantes.length === 0 ? 'Anexar comprovante Pix *' : `Adicionar mais (${comprovantes.length}/4)`}
               <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
             </label>
@@ -244,7 +240,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
             <span style={{ fontSize: 12, color: 'var(--green)' }}>✅ Máximo de 4 comprovantes</span>
           )}
         </div>
-
         <button className="btn-primary btn-full" style={{ marginTop: 12 }} onClick={handleAdd} disabled={adding}>
           {adding ? 'Registrando...' : '+ Registrar CPA'}
         </button>
@@ -288,12 +283,11 @@ export default function MeuPainel({ casas, metaDiaria }) {
                     </div>
                   </div>
                   <div className="cpa-actions">
-                    <span className="cpa-valor">{casa ? fmt(getValorAfiliado(casa)) : '--'}</span>
+                    <span className="cpa-valor">{casa ? fmt(getValor(casa, isAdmin)) : '--'}</span>
                     <button className="btn-icon" onClick={() => isEditing ? cancelEdit() : startEdit(cpa)}>✏️</button>
                     <button className="btn-danger" onClick={() => handleRemove(cpa.id)}>✕</button>
                   </div>
                 </div>
-
                 {isEditing && (
                   <div className="cpa-edit-row" style={{ flexDirection: 'column', gap: 12 }}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -319,7 +313,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                           </div>
                         ))}
                         {editImgs.length < 4 && (
-                          <label style={{ width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22 }}>
+                          <label style={{ width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--muted)', fontSize: 22 }}>
                             +
                             <input ref={editFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleEditFileChange} />
                           </label>
