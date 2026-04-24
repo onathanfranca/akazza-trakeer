@@ -40,7 +40,7 @@ export default function Ranking({ casas, users }) {
       if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, count: 0, faturamento: 0, lucro: 0 };
       const casa = casas.find(c => c.nome === cpa.casa);
       map[cpa.uid].count++;
-      if (casa) { map[cpa.uid].faturamento += casa.valor; map[cpa.uid].lucro += (casa.valor - casa.custo); }
+      if (casa) { map[cpa.uid].faturamento += (casa.valorAdmin ?? casa.valor); map[cpa.uid].lucro += ((casa.valorAdmin ?? casa.valor) - (casa.custoAdmin ?? casa.custo)); }
     });
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [cpas, users, casas, filterCasa]);

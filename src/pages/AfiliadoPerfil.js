@@ -48,7 +48,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
     let faturamento = 0, custo = 0;
     cpas.forEach(c => {
       const casa = casas.find(x => x.nome === c.casa);
-      if (casa) { faturamento += casa.valor; custo += casa.custo; }
+      if (casa) { faturamento += (casa.valorAdmin ?? casa.valor); custo += (casa.custoAdmin ?? casa.custo); }
     });
     return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
   }, [cpas, casas]);
@@ -166,7 +166,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
                     </div>
                   </div>
                   <div className="cpa-actions">
-                    <span className="cpa-valor">{casa ? fmt(casa.valor) : '--'}</span>
+                    <span className="cpa-valor">{casa ? fmt(casa.valorAdmin ?? casa.valor) : '--'}</span>
                   </div>
                 </div>
               );
