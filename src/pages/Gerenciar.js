@@ -10,6 +10,7 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
   const [newCustoAdmin, setNewCustoAdmin] = useState('');
   const [newValorAff, setNewValorAff] = useState('');
   const [newCustoAff, setNewCustoAff] = useState('');
+  const [newLink, setNewLink] = useState('');
   const [localCasas, setLocalCasas] = useState({});
   const [saving, setSaving] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -34,9 +35,9 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
           custoAdmin: Number(merged.custoAdmin ?? merged.custo),
           valorAfiliado: Number(merged.valorAfiliado ?? merged.valor),
           custoAfiliado: Number(merged.custoAfiliado ?? merged.custo),
-          // mantém campos legados
           valor: Number(merged.valorAdmin ?? merged.valor),
           custo: Number(merged.custoAdmin ?? merged.custo),
+          link: merged.link ?? '',
         });
       }
       setLocalCasas({});
@@ -47,11 +48,11 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
 
   async function handleAddCasa() {
     if (!newCasa.trim() || !newValorAdmin || !newCustoAdmin || !newValorAff || !newCustoAff) {
-      showToast('⚠️ Preencha todos os campos.', 'yellow'); return;
+      showToast('⚠️ Preencha nome e valores.', 'yellow'); return;
     }
     try {
-      await addCasa(newCasa.trim(), newValorAdmin, newCustoAdmin, newValorAff, newCustoAff);
-      setNewCasa(''); setNewValorAdmin(''); setNewCustoAdmin(''); setNewValorAff(''); setNewCustoAff('');
+      await addCasa(newCasa.trim(), newValorAdmin, newCustoAdmin, newValorAff, newCustoAff, newLink);
+      setNewCasa(''); setNewValorAdmin(''); setNewCustoAdmin(''); setNewValorAff(''); setNewCustoAff(''); setNewLink('');
       showToast('✅ Casa adicionada!', 'green');
     } catch { showToast('Erro ao adicionar casa.', 'red'); }
   }
@@ -86,7 +87,7 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
               {u.foto ? (
                 <img src={u.foto} alt="avatar" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)', flexShrink: 0 }} />
               ) : (
-                <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: 'var(--text-muted)', flexShrink: 0 }}>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: 'var(--muted)', flexShrink: 0 }}>
                   {(u.nome || '?')[0].toUpperCase()}
                 </div>
               )}
@@ -115,17 +116,18 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
         </div>
 
         {/* Legenda */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 90px) 32px', gap: 6, marginBottom: 6, padding: '0 4px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 85px) 1fr 32px', gap: 6, marginBottom: 6, padding: '0 4px' }}>
           <div />
           <div style={{ fontSize: 10, color: 'var(--accent)', textAlign: 'center' }}>Val. Admin</div>
           <div style={{ fontSize: 10, color: 'var(--accent)', textAlign: 'center' }}>Custo Admin</div>
-          <div style={{ fontSize: 10, color: '#4ea', textAlign: 'center' }}>Val. Afiliado</div>
+          <div style={{ fontSize: 10, color: '#4ea', textAlign: 'center' }}>Val. Afil.</div>
           <div style={{ fontSize: 10, color: '#4ea', textAlign: 'center' }}>Custo Afil.</div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'center' }}>Link</div>
           <div />
         </div>
 
         {casas.map(casa => (
-          <div key={casa.id} style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 90px) 32px', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+          <div key={casa.id} style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 85px) 1fr 32px', gap: 6, alignItems: 'center', marginBottom: 10 }}>
             <div style={{ fontWeight: 600, fontSize: 13 }}>🏠 {casa.nome}</div>
             <input className="input-small" type="number" placeholder="R$"
               value={getVal(casa.id, 'valorAdmin', casa.valorAdmin ?? casa.valor)}
@@ -139,19 +141,24 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
             <input className="input-small" type="number" placeholder="R$"
               value={getVal(casa.id, 'custoAfiliado', casa.custoAfiliado ?? casa.custo)}
               onChange={e => setLocal(casa.id, 'custoAfiliado', e.target.value)} />
+            <input className="input-small" type="text" placeholder="https://..."
+              style={{ width: '100%' }}
+              value={getVal(casa.id, 'link', casa.link ?? '')}
+              onChange={e => setLocal(casa.id, 'link', e.target.value)} />
             <button className="btn-danger" onClick={() => handleRemoveCasa(casa.id)}>✕</button>
           </div>
         ))}
 
-        {/* Add nova casa */}
+        {/* Nova casa */}
         <div style={{ marginTop: 16, padding: '12px', background: 'var(--card)', borderRadius: 10, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>➕ Nova casa</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>➕ Nova casa</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <input className="input-field" placeholder="Nome da casa" style={{ flex: 2, minWidth: 120 }} value={newCasa} onChange={e => setNewCasa(e.target.value)} />
             <input className="input-small" type="number" placeholder="Val. Admin" value={newValorAdmin} onChange={e => setNewValorAdmin(e.target.value)} />
             <input className="input-small" type="number" placeholder="Custo Admin" value={newCustoAdmin} onChange={e => setNewCustoAdmin(e.target.value)} />
             <input className="input-small" type="number" placeholder="Val. Afil." value={newValorAff} onChange={e => setNewValorAff(e.target.value)} />
             <input className="input-small" type="number" placeholder="Custo Afil." value={newCustoAff} onChange={e => setNewCustoAff(e.target.value)} />
+            <input className="input-field" placeholder="Link de divulgação (opcional)" style={{ flex: 3, minWidth: 200 }} value={newLink} onChange={e => setNewLink(e.target.value)} />
             <button className="btn-save" onClick={handleAddCasa}>+ Add</button>
           </div>
         </div>

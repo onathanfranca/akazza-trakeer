@@ -32,18 +32,17 @@ export function useCasas() {
     return setDoc(doc(db, 'casas', id), data, { merge: true });
   }
 
-  // valorAdmin, custoAdmin = valores do ponto de vista do admin
-  // valorAfiliado, custoAfiliado = valores que o afiliado vê
-  async function addCasa(nome, valorAdmin, custoAdmin, valorAfiliado, custoAfiliado) {
+  async function addCasa(nome, valorAdmin, custoAdmin, valorAfiliado, custoAfiliado, link = '') {
     const id = nome.toLowerCase().replace(/[\s/\\]+/g, '_');
     return setDoc(doc(db, 'casas', id), {
       nome,
-      valor: Number(valorAdmin),        // compatibilidade legada
+      valor: Number(valorAdmin),
       custo: Number(custoAdmin),
       valorAdmin: Number(valorAdmin),
       custoAdmin: Number(custoAdmin),
       valorAfiliado: Number(valorAfiliado),
       custoAfiliado: Number(custoAfiliado),
+      link: link || '',
     });
   }
 

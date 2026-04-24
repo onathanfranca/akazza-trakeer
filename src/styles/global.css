@@ -6,8 +6,8 @@
   --surface: #111118;
   --card: #16161f;
   --border: #1e1e2e;
-  --accent: #FFD700;
-  --accent2: #FFA500;
+  --accent: #C9A84C;
+  --accent2: #A67C32;
   --yellow: #f5c518;
   --green: #1aaa6e;
   --text: #e8e8f0;
@@ -116,7 +116,7 @@ body {
   font-family: var(--font-body);
 }
 .nav-tab:hover { color: var(--text); }
-.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); text-shadow: 0 0 8px #FFD700, 0 0 20px #FFD70088; }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); text-shadow: 0 0 8px #C9A84C, 0 0 20px #C9A84C88; }
 
 main { padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
 
@@ -244,11 +244,11 @@ main { padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
 }
 .meta-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
 .meta-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 2px; color: var(--muted); }
-.meta-count { font-family: var(--font-display); font-size: 40px; color: var(--accent); line-height: 1; text-shadow: 0 0 12px #FFD700; }
+.meta-count { font-family: var(--font-display); font-size: 40px; color: var(--accent); line-height: 1; text-shadow: 0 0 12px #C9A84C; }
 .meta-count span { font-size: 18px; color: var(--muted); }
 .meta-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .progress-track { background: var(--border); border-radius: 99px; height: 10px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #FFA500, #FFD700); transition: width .6s ease; }
+.progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #A67C32, #C9A84C); transition: width .6s ease; }
 .progress-fill.done { background: var(--yellow); }
 
 /* ── DATE FILTER ──────────────────────────────── */
@@ -315,7 +315,7 @@ main { padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
 .cpa-meta { font-size: 12px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .casa-tag { background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 2px 8px; font-size: 11px; color: var(--muted); }
 .cpa-actions { display: flex; align-items: center; gap: 8px; }
-.cpa-valor { font-family: var(--font-display); font-size: 20px; color: var(--accent); text-shadow: 0 0 8px #FFD700; }
+.cpa-valor { font-family: var(--font-display); font-size: 20px; color: var(--accent); text-shadow: 0 0 8px #C9A84C; }
 
 .cpa-edit-row {
   background: var(--surface);
@@ -376,7 +376,7 @@ main { padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
 .rank-info { flex: 1; }
 .rank-nome { font-weight: 700; font-size: 15px; }
 .rank-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-.rank-num { font-family: var(--font-display); font-size: 36px; color: var(--accent); text-shadow: 0 0 10px #FFD700; }
+.rank-num { font-family: var(--font-display); font-size: 36px; color: var(--accent); text-shadow: 0 0 10px #C9A84C; }
 .rank-num span { font-size: 14px; color: var(--muted); }
 
 /* ── ADMIN AFILIADOS GRID ──────────────────────────────── */
@@ -395,7 +395,7 @@ main { padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #FFA500, #FFD700);
+  background: linear-gradient(90deg, #A67C32, #C9A84C);
   opacity: 0;
   transition: opacity .2s;
 }
@@ -449,7 +449,7 @@ main { padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
 /* ── AUTH ──────────────────────────────── */
 .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--bg); }
 .auth-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 36px 32px; width: 100%; max-width: 400px; }
-.auth-logo { text-shadow: 0 0 12px #FFD700, 0 0 30px #FFA50066; font-family: var(--font-display); font-size: 32px; letter-spacing: 4px; color: var(--accent); text-align: center; margin-bottom: 4px; }
+.auth-logo { text-shadow: 0 0 12px #C9A84C, 0 0 30px #A67C3266; font-family: var(--font-display); font-size: 32px; letter-spacing: 4px; color: var(--accent); text-align: center; margin-bottom: 4px; }
 .auth-logo span { color: var(--text); }
 .auth-sub { text-align: center; font-size: 12px; color: var(--muted); margin-bottom: 28px; letter-spacing: 1px; }
 .auth-tabs { display: flex; background: var(--surface); border-radius: 10px; padding: 3px; margin-bottom: 24px; }
