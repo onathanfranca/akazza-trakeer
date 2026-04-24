@@ -13,6 +13,16 @@ function formatTime(ts) {
   return format(d, 'dd/MM HH:mm');
 }
 
+// Usa o role DO AFILIADO visualizado, não do admin logado
+function getValor(casa, userRole) {
+  if (userRole === 'admin') return casa?.valorAdmin ?? casa?.valor ?? 0;
+  return casa?.valorAfiliado ?? casa?.valor ?? 0;
+}
+function getCusto(casa, userRole) {
+  if (userRole === 'admin') return casa?.custoAdmin ?? casa?.custo ?? 0;
+  return casa?.custoAfiliado ?? casa?.custo ?? 0;
+}
+
 export default function AfiliadoPerfil({ user, casas, onClose }) {
   const [cpas, setCpas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +30,9 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
   const [dateTo, setDateTo] = useState(today());
   const [filterCasa, setFilterCasa] = useState('Todas');
   const [viewingImg, setViewingImg] = useState(null);
+
+  // Role do afiliado visualizado
+  const userRole = user.role || 'afiliado';
 
   async function fetchCpas() {
     setLoading(true);
@@ -48,10 +61,13 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
     let faturamento = 0, custo = 0;
     cpas.forEach(c => {
       const casa = casas.find(x => x.nome === c.casa);
-      if (casa) { faturamento += (casa.valorAdmin ?? casa.valor); custo += (casa.custoAdmin ?? casa.custo); }
+      if (casa) {
+        faturamento += getValor(casa, userRole);
+        custo += getCusto(casa, userRole);
+      }
     });
     return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
-  }, [cpas, casas]);
+  }, [cpas, casas, userRole]);
 
   function getComprovantes(cpa) {
     if (cpa.comprovantes?.length > 0) return cpa.comprovantes;
@@ -65,7 +81,6 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
       zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
       padding: '16px', overflowY: 'auto'
     }}>
-      {/* Lightbox imagem */}
       {viewingImg && (
         <div onClick={() => setViewingImg(null)} style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)',
@@ -101,8 +116,8 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
             <div>
               <div style={{ fontWeight: 700, fontSize: 18 }}>{user.nome}</div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{user.email}</div>
-              <span style={{ fontSize: 11, background: 'var(--accent)', color: '#fff', borderRadius: 4, padding: '2px 7px' }}>
-                {user.role === 'admin' ? 'ADMIN' : 'Afiliado'}
+              <span style={{ fontSize: 11, background: userRole === 'admin' ? 'var(--accent)' : 'var(--surface)', color: userRole === 'admin' ? '#fff' : 'var(--muted)', border: userRole !== 'admin' ? '1px solid var(--border)' : 'none', borderRadius: 4, padding: '2px 7px' }}>
+                {userRole === 'admin' ? 'ADMIN' : 'Afiliado'}
               </span>
             </div>
           </div>
@@ -166,7 +181,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
                     </div>
                   </div>
                   <div className="cpa-actions">
-                    <span className="cpa-valor">{casa ? fmt(casa.valorAdmin ?? casa.valor) : '--'}</span>
+                    <span className="cpa-valor">{casa ? fmt(getValor(casa, userRole)) : '--'}</span>
                   </div>
                 </div>
               );
