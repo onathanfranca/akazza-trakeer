@@ -23,6 +23,18 @@ function Avatar({ foto, nome, size = 36 }) {
   );
 }
 
+function getValor(casa, user) {
+  if (!casa) return 0;
+  if (user?.role === 'admin') return casa.valorAdmin ?? casa.valor ?? 0;
+  return casa.valorAfiliado ?? casa.valor ?? 0;
+}
+
+function getCusto(casa, user) {
+  if (!casa) return 0;
+  if (user?.role === 'admin') return casa.custoAdmin ?? casa.custo ?? 0;
+  return casa.custoAfiliado ?? casa.custo ?? 0;
+}
+
 export default function Ranking({ casas, users }) {
   const [dateFrom, setDateFrom] = useState(today());
   const [dateTo, setDateTo] = useState(today());
@@ -37,10 +49,15 @@ export default function Ranking({ casas, users }) {
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
-      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, count: 0, faturamento: 0, lucro: 0 };
+      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, role: user.role, count: 0, faturamento: 0, lucro: 0 };
       const casa = casas.find(c => c.nome === cpa.casa);
       map[cpa.uid].count++;
-      if (casa) { map[cpa.uid].faturamento += (casa.valorAdmin ?? casa.valor); map[cpa.uid].lucro += ((casa.valorAdmin ?? casa.valor) - (casa.custoAdmin ?? casa.custo)); }
+      if (casa) {
+        const valor = getValor(casa, user);
+        const custo = getCusto(casa, user);
+        map[cpa.uid].faturamento += valor;
+        map[cpa.uid].lucro += valor - custo;
+      }
     });
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [cpas, users, casas, filterCasa]);
