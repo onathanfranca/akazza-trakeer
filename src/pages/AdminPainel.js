@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { useAllCPAs } from '../hooks/useAllCPAs';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
+function getValorAdmin(casa) { return casa?.valorAdmin ?? casa?.valor ?? 0; }
+function getCustoAdmin(casa) { return casa?.custoAdmin ?? casa?.custo ?? 0; }
 
 export default function AdminPainel({ casas, users, metaDiaria }) {
   const [dateFrom, setDateFrom] = useState(today());
@@ -13,17 +15,16 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
 
   const { cpas, loading } = useAllCPAs(applied.from, applied.to);
 
-  // Build per-user stats
   const afiliadoStats = useMemo(() => {
     const map = {};
     cpas.forEach(cpa => {
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
-      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, count: 0, faturamento: 0, custo: 0 };
+      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, count: 0, faturamento: 0, custo: 0 };
       const casa = casas.find(c => c.nome === cpa.casa);
       map[cpa.uid].count++;
-      if (casa) { map[cpa.uid].faturamento += casa.valor; map[cpa.uid].custo += casa.custo; }
+      if (casa) { map[cpa.uid].faturamento += getValorAdmin(casa); map[cpa.uid].custo += getCustoAdmin(casa); }
     });
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [cpas, users, casas, filterCasa]);
@@ -73,9 +74,7 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
 
       <div className="chips">
         {['Todas', ...casas.map(c => c.nome)].map(nome => (
-          <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>
-            {nome}
-          </div>
+          <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>{nome}</div>
         ))}
       </div>
 
@@ -87,7 +86,16 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
         <div className="aff-grid">
           {afiliadoStats.map(aff => (
             <div className="aff-card" key={aff.nome}>
-              <div className="aff-name">{aff.nome}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                {aff.foto ? (
+                  <img src={aff.foto} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)' }} />
+                ) : (
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: 'var(--text-muted)' }}>
+                    {(aff.nome || '?')[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="aff-name">{aff.nome}</div>
+              </div>
               <div className="aff-cpas">{aff.count}<span> CPAs</span></div>
               <div className="aff-fin">
                 <div className="fin-row"><span className="fin-label">Faturamento</span><span className="fin-val yellow">{fmt(aff.faturamento)}</span></div>

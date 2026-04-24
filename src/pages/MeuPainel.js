@@ -28,6 +28,14 @@ function compressImage(file) {
   });
 }
 
+// Pega valor afiliado com fallback para campo legado
+function getValorAfiliado(casa) {
+  return casa?.valorAfiliado ?? casa?.valor ?? 0;
+}
+function getCustoAfiliado(casa) {
+  return casa?.custoAfiliado ?? casa?.custo ?? 0;
+}
+
 export default function MeuPainel({ casas, metaDiaria }) {
   const { currentUser } = useAuth();
   const { showCPAToast, showToast } = useToast();
@@ -39,14 +47,14 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const { cpas, loading, addCPA, removeCPA, editCPA } = useCPAs(currentUser?.uid, applied.from, applied.to);
 
   const [selectedCasa, setSelectedCasa] = useState('');
-  const [player, setPlayer] = useState('');
+  const [depositante, setDepositante] = useState('');
   const [comprovantes, setComprovantes] = useState([]);
   const [adding, setAdding] = useState(false);
   const [filterCasa, setFilterCasa] = useState('Todas');
   const [editingId, setEditingId] = useState(null);
   const [editNome, setEditNome] = useState('');
   const [editCasaVal, setEditCasaVal] = useState('');
-  const [editImgs, setEditImgs] = useState([]); // imagens em edição
+  const [editImgs, setEditImgs] = useState([]);
   const [savingImgs, setSavingImgs] = useState(false);
   const [viewingImg, setViewingImg] = useState(null);
   const fileRef = useRef();
@@ -61,7 +69,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
     let faturamento = 0, custo = 0;
     cpas.forEach(c => {
       const casa = casas.find(x => x.nome === c.casa);
-      if (casa) { faturamento += casa.valor; custo += casa.custo; }
+      if (casa) { faturamento += getValorAfiliado(casa); custo += getCustoAfiliado(casa); }
     });
     return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
   }, [cpas, casas]);
@@ -83,10 +91,12 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   async function handleAdd() {
     if (!selectedCasa) { showToast('⚠️ Selecione uma casa!', 'yellow'); return; }
+    if (!depositante.trim()) { showToast('⚠️ Nome do depositante é obrigatório!', 'yellow'); return; }
+    if (comprovantes.length === 0) { showToast('⚠️ Anexe pelo menos 1 comprovante!', 'yellow'); return; }
     setAdding(true);
     try {
-      await addCPA(selectedCasa, player, comprovantes);
-      setPlayer('');
+      await addCPA(selectedCasa, depositante.trim(), comprovantes);
+      setDepositante('');
       setComprovantes([]);
       showCPAToast();
     } catch { showToast('Erro ao registrar CPA.', 'red'); }
@@ -120,7 +130,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
   async function handleEditFileChange(e) {
     const files = Array.from(e.target.files);
     const remaining = 4 - editImgs.length;
-    if (remaining <= 0) { showToast('Máximo de 4 comprovantes!', 'yellow'); return; }
+    if (remaining <= 0) { showToast('Máximo de 4!', 'yellow'); return; }
     const compressed = await Promise.all(files.slice(0, remaining).map(compressImage));
     setEditImgs(prev => [...prev, ...compressed]);
     if (editFileRef.current) editFileRef.current.value = '';
@@ -133,12 +143,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
   async function handleSaveEdit(id) {
     setSavingImgs(true);
     try {
-      await editCPA(id, {
-        player: editNome,
-        casa: editCasaVal,
-        comprovantes: editImgs,
-        comprovante: null, // limpa campo legado
-      });
+      await editCPA(id, { player: editNome, casa: editCasaVal, comprovantes: editImgs, comprovante: null });
       showToast('✅ CPA atualizado!', 'green');
       cancelEdit();
     } catch { showToast('Erro ao atualizar.', 'red'); }
@@ -157,20 +162,12 @@ export default function MeuPainel({ casas, metaDiaria }) {
     <div className="fade-in">
       {/* Lightbox */}
       {viewingImg && (
-        <div onClick={() => setViewingImg(null)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)',
-          zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16
-        }}>
+        <div onClick={() => setViewingImg(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <img src={viewingImg} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
-          <button onClick={() => setViewingImg(null)} style={{
-            position: 'absolute', top: 16, right: 16, background: 'var(--accent)',
-            border: 'none', borderRadius: '50%', width: 36, height: 36,
-            color: '#fff', fontSize: 18, cursor: 'pointer'
-          }}>✕</button>
+          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 18, cursor: 'pointer' }}>✕</button>
         </div>
       )}
 
-      {/* Date Filter */}
       <div className="date-filter">
         <label>De</label>
         <input type="date" className="date-input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
@@ -179,7 +176,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <button className="btn-filter" onClick={() => setApplied({ from: dateFrom, to: dateTo })}>Filtrar</button>
       </div>
 
-      {/* Stats */}
       <div className="resumo-grid">
         <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
         <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmt(stats.faturamento)}</div></div>
@@ -187,7 +183,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val green">{fmt(stats.lucro)}</div></div>
       </div>
 
-      {/* Meta */}
       <div className="meta-bar">
         <div className="meta-header">
           <div>
@@ -211,9 +206,18 @@ export default function MeuPainel({ casas, metaDiaria }) {
             <option value="">Selecione a casa...</option>
             {casas.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
           </select>
-          <input className="input-field" type="text" placeholder="Nome do player (opcional)" value={player} onChange={e => setPlayer(e.target.value)} />
+          <div style={{ position: 'relative' }}>
+            <input className="input-field" type="text"
+              placeholder="Nome do depositante *"
+              value={depositante}
+              onChange={e => setDepositante(e.target.value)}
+              style={{ borderColor: depositante.trim() ? 'var(--border)' : 'var(--accent)' }}
+            />
+            {!depositante.trim() && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--accent)' }}>obrigatório</span>}
+          </div>
         </div>
 
+        {/* Comprovantes — obrigatório */}
         <div style={{ marginTop: 10 }}>
           {comprovantes.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -221,11 +225,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                 <div key={idx} style={{ position: 'relative' }}>
                   <img src={img} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
                     style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
-                  <button onClick={() => removeComprovante(idx)} style={{
-                    position: 'absolute', top: -6, right: -6, background: 'var(--accent)',
-                    border: 'none', borderRadius: '50%', width: 20, height: 20,
-                    color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0
-                  }}>✕</button>
+                  <button onClick={() => removeComprovante(idx)} style={{ position: 'absolute', top: -6, right: -6, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
                 </div>
               ))}
             </div>
@@ -233,10 +233,11 @@ export default function MeuPainel({ casas, metaDiaria }) {
           {comprovantes.length < 4 ? (
             <label style={{
               display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-              padding: '9px 14px', borderRadius: 8, border: '1.5px dashed var(--border)',
-              color: 'var(--text-muted)', fontSize: 13
+              padding: '9px 14px', borderRadius: 8,
+              border: `1.5px dashed ${comprovantes.length === 0 ? 'var(--accent)' : 'var(--border)'}`,
+              color: comprovantes.length === 0 ? 'var(--accent)' : 'var(--text-muted)', fontSize: 13
             }}>
-              📎 {comprovantes.length === 0 ? 'Anexar comprovante(s) Pix' : `Adicionar mais (${comprovantes.length}/4)`}
+              📎 {comprovantes.length === 0 ? 'Anexar comprovante Pix *' : `Adicionar mais (${comprovantes.length}/4)`}
               <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
             </label>
           ) : (
@@ -249,7 +250,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </button>
       </div>
 
-      {/* Filter chips */}
       <div className="chips">
         {['Todas', ...casas.map(c => c.nome)].map(nome => (
           <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>{nome}</div>
@@ -271,7 +271,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
             return (
               <div key={cpa.id}>
                 <div className="cpa-item">
-                  {/* Thumbnails */}
                   {!isEditing && imgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                       {imgs.map((img, idx) => (
@@ -281,7 +280,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                     </div>
                   )}
                   <div className="cpa-info">
-                    <div className="cpa-nome">{cpa.player || 'CPA sem nome'}</div>
+                    <div className="cpa-nome">{cpa.player || 'Sem depositante'}</div>
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>
@@ -289,20 +288,18 @@ export default function MeuPainel({ casas, metaDiaria }) {
                     </div>
                   </div>
                   <div className="cpa-actions">
-                    <span className="cpa-valor">{casa ? fmt(casa.valor) : '--'}</span>
+                    <span className="cpa-valor">{casa ? fmt(getValorAfiliado(casa)) : '--'}</span>
                     <button className="btn-icon" onClick={() => isEditing ? cancelEdit() : startEdit(cpa)}>✏️</button>
                     <button className="btn-danger" onClick={() => handleRemove(cpa.id)}>✕</button>
                   </div>
                 </div>
 
-                {/* Painel de edição */}
                 {isEditing && (
                   <div className="cpa-edit-row" style={{ flexDirection: 'column', gap: 12 }}>
-                    {/* Nome + Casa */}
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <div style={{ flex: 1, minWidth: 120 }}>
-                        <div className="input-small-label">Nome do player</div>
-                        <input className="input-edit" value={editNome} onChange={e => setEditNome(e.target.value)} placeholder="Nome do player" />
+                        <div className="input-small-label">Depositante</div>
+                        <input className="input-edit" value={editNome} onChange={e => setEditNome(e.target.value)} placeholder="Nome do depositante" />
                       </div>
                       <div style={{ flex: 1, minWidth: 120 }}>
                         <div className="input-small-label">Casa</div>
@@ -311,8 +308,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
                         </select>
                       </div>
                     </div>
-
-                    {/* Edição de imagens */}
                     <div>
                       <div className="input-small-label">Comprovantes ({editImgs.length}/4)</div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
@@ -320,27 +315,17 @@ export default function MeuPainel({ casas, metaDiaria }) {
                           <div key={idx} style={{ position: 'relative' }}>
                             <img src={img} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
                               style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
-                            <button onClick={() => removeEditImg(idx)} style={{
-                              position: 'absolute', top: -6, right: -6, background: '#e53',
-                              border: 'none', borderRadius: '50%', width: 20, height: 20,
-                              color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0
-                            }}>✕</button>
+                            <button onClick={() => removeEditImg(idx)} style={{ position: 'absolute', top: -6, right: -6, background: '#e53', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
                           </div>
                         ))}
                         {editImgs.length < 4 && (
-                          <label style={{
-                            width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22
-                          }}>
+                          <label style={{ width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22 }}>
                             +
                             <input ref={editFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleEditFileChange} />
                           </label>
                         )}
                       </div>
                     </div>
-
-                    {/* Botões */}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn-save" style={{ padding: '7px 14px', fontSize: 12 }} onClick={() => handleSaveEdit(cpa.id)} disabled={savingImgs}>
                         {savingImgs ? 'Salvando...' : 'Salvar'}
