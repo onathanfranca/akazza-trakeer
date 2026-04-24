@@ -10,7 +10,7 @@ export function useUsers() {
   const [users, setUsers] = useState([]);
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'users'), (snap) => {
-      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
     });
     return unsub;
   }, []);
