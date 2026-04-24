@@ -4,8 +4,18 @@ import { format } from 'date-fns';
 import { useAllCPAs } from '../hooks/useAllCPAs';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
-function getValorAdmin(casa) { return casa?.valorAdmin ?? casa?.valor ?? 0; }
-function getCustoAdmin(casa) { return casa?.custoAdmin ?? casa?.custo ?? 0; }
+
+function getValor(casa, user) {
+  if (!casa) return 0;
+  if (user?.role === 'admin') return casa.valorAdmin ?? casa.valor ?? 0;
+  return casa.valorAfiliado ?? casa.valor ?? 0;
+}
+
+function getCusto(casa, user) {
+  if (!casa) return 0;
+  if (user?.role === 'admin') return casa.custoAdmin ?? casa.custo ?? 0;
+  return casa.custoAfiliado ?? casa.custo ?? 0;
+}
 
 export default function AdminPainel({ casas, users, metaDiaria }) {
   const [dateFrom, setDateFrom] = useState(today());
@@ -21,10 +31,13 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
-      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, count: 0, faturamento: 0, custo: 0 };
+      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, role: user.role, count: 0, faturamento: 0, custo: 0 };
       const casa = casas.find(c => c.nome === cpa.casa);
       map[cpa.uid].count++;
-      if (casa) { map[cpa.uid].faturamento += getValorAdmin(casa); map[cpa.uid].custo += getCustoAdmin(casa); }
+      if (casa) {
+        map[cpa.uid].faturamento += getValor(casa, user);
+        map[cpa.uid].custo += getCusto(casa, user);
+      }
     });
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [cpas, users, casas, filterCasa]);
@@ -94,7 +107,10 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
                     {(aff.nome || '?')[0].toUpperCase()}
                   </div>
                 )}
-                <div className="aff-name">{aff.nome}</div>
+                <div>
+                  <div className="aff-name">{aff.nome}</div>
+                  {aff.role === 'admin' && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>ADMIN</span>}
+                </div>
               </div>
               <div className="aff-cpas">{aff.count}<span> CPAs</span></div>
               <div className="aff-fin">
