@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { useUsers, useCasas, useConfig } from './hooks/useAdmin';
+import { useNotifications } from './hooks/useNotifications';
 
 import AuthPage from './pages/AuthPage';
 import AdminPainel from './pages/AdminPainel';
@@ -36,6 +37,7 @@ function AppInner() {
   const { users, updateRole, removeUser } = useUsers();
   const { casas, saveCasa, addCasa, removeCasa } = useCasas();
   const { config, saveConfig } = useConfig();
+  const { notify } = useNotifications();
   const [tab, setTab] = useState(isAdmin ? 'admin' : 'meu');
   const [dark, setDark] = useState(true);
 
@@ -48,6 +50,16 @@ function AppInner() {
       setTab('meu');
     }
   }, [isAdmin]);
+
+  // Callback para admin receber notificação de CPA de qualquer afiliado
+  function handleAdminNewCPA(cpa) {
+    const user = users.find(u => u.uid === cpa.uid);
+    const nome = user?.nome || 'Afiliado';
+    notify({
+      title: 'Novo CPA ✅',
+      body: `${nome} registrou +1 CPA${cpa.casa ? ` - ${cpa.casa}` : ''}`,
+    });
+  }
 
   const ADMIN_TABS = [
     { id: 'admin', label: '📊 Painel Geral' },
@@ -71,7 +83,6 @@ function AppInner() {
       <header className="header">
         <div className="logo" onClick={() => setTab(isAdmin ? 'admin' : 'meu')}>⚡ AKAZZA <span>TRACKER</span></div>
         <div className="header-right">
-          {/* Avatar clicável para ir ao perfil */}
           <div style={{ cursor: 'pointer' }} onClick={() => setTab('perfil')} title="Meu Perfil">
             <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={34} />
           </div>
@@ -96,7 +107,12 @@ function AppInner() {
 
       <main>
         {tab === 'admin' && isAdmin && (
-          <AdminPainel casas={casas} users={users} metaDiaria={config.metaDiaria} />
+          <AdminPainel
+            casas={casas}
+            users={users}
+            metaDiaria={config.metaDiaria}
+            onNewCPA={handleAdminNewCPA}
+          />
         )}
         {tab === 'ranking' && (
           <Ranking casas={casas} users={users} />

@@ -1,6 +1,5 @@
 // src/hooks/useAllCPAs.js
-// Hook admin — busca todos os CPAs de todos os afiliados em tempo real
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   collection, query, where, orderBy,
   onSnapshot, Timestamp
@@ -8,11 +7,16 @@ import {
 import { db } from '../firebase/config';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
-export function useAllCPAs(dateFrom, dateTo) {
+export function useAllCPAs(dateFrom, dateTo, onNewCPA = null) {
   const [cpas, setCPAs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const isFirstLoad = useRef(true);
+  const knownIds = useRef(new Set());
 
   useEffect(() => {
+    isFirstLoad.current = true;
+    knownIds.current = new Set();
+
     const from = Timestamp.fromDate(startOfDay(parseISO(dateFrom)));
     const to = Timestamp.fromDate(endOfDay(parseISO(dateTo)));
 
@@ -24,7 +28,22 @@ export function useAllCPAs(dateFrom, dateTo) {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      setCPAs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (isFirstLoad.current) {
+        docs.forEach(d => knownIds.current.add(d.id));
+        isFirstLoad.current = false;
+      } else {
+        snap.docChanges().forEach(change => {
+          if (change.type === 'added' && !knownIds.current.has(change.doc.id)) {
+            knownIds.current.add(change.doc.id);
+            const cpa = { id: change.doc.id, ...change.doc.data() };
+            if (onNewCPA) onNewCPA(cpa);
+          }
+        });
+      }
+
+      setCPAs(docs);
       setLoading(false);
     });
 

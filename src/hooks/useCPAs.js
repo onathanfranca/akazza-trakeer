@@ -1,5 +1,5 @@
 // src/hooks/useCPAs.js
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   collection, query, where, orderBy,
   onSnapshot, addDoc, deleteDoc, updateDoc,
@@ -8,12 +8,16 @@ import {
 import { db } from '../firebase/config';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
-export function useCPAs(uid, dateFrom, dateTo) {
+export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
   const [cpas, setCPAs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const isFirstLoad = useRef(true);
+  const knownIds = useRef(new Set());
 
   useEffect(() => {
     if (!uid) return;
+    isFirstLoad.current = true;
+    knownIds.current = new Set();
 
     const from = Timestamp.fromDate(startOfDay(parseISO(dateFrom)));
     const to = Timestamp.fromDate(endOfDay(parseISO(dateTo)));
@@ -27,7 +31,24 @@ export function useCPAs(uid, dateFrom, dateTo) {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      setCPAs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (isFirstLoad.current) {
+        // Primeira carga — apenas registra os IDs existentes, sem notificar
+        docs.forEach(d => knownIds.current.add(d.id));
+        isFirstLoad.current = false;
+      } else {
+        // Novas chegadas após a carga inicial
+        snap.docChanges().forEach(change => {
+          if (change.type === 'added' && !knownIds.current.has(change.doc.id)) {
+            knownIds.current.add(change.doc.id);
+            const cpa = { id: change.doc.id, ...change.doc.data() };
+            if (onNewCPA) onNewCPA(cpa);
+          }
+        });
+      }
+
+      setCPAs(docs);
       setLoading(false);
     });
 
