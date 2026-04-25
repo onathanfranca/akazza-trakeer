@@ -6,7 +6,7 @@ import { format, startOfDay, endOfDay, parseISO, subDays } from 'date-fns';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
-function fmtVal(n) { return `R$ ${Number(n || 0).toLocaleString('pt-BR')}`; }
+function fmtVal(n) { return `R$ ${Number(Math.abs(n || 0)).toLocaleString('pt-BR')}`; }
 function formatTime(ts) {
   if (!ts) return '--';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -54,13 +54,13 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
   );
 
   const stats = useMemo(() => {
-    let faturamento = 0, totalDeposito = 0;
+    let faturamento = 0, custo = 0;
     cpas.forEach(c => {
       const casa = casas.find(x => x.nome === c.casa);
       faturamento += getValorCPA(c, casa, userRole);
-      if (c.valorDeposito) totalDeposito += Number(c.valorDeposito);
+      custo += Number(c.valorDeposito || 0);
     });
-    return { total: cpas.length, faturamento, totalDeposito };
+    return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
   }, [cpas, casas, userRole]);
 
   function getComprovantes(cpa) {
@@ -74,7 +74,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
       {viewingImg && (
         <div onClick={() => setViewingImg(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <img src={viewingImg} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
-          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#000', fontSize: 18, cursor: 'pointer' }}>✕</button>
+          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 18, cursor: 'pointer' }}>✕</button>
         </div>
       )}
 
@@ -85,14 +85,14 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
             {user.foto ? (
               <img src={user.foto} alt="avatar" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)' }} />
             ) : (
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: 'var(--text-muted)' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
                 {(user.nome || '?')[0].toUpperCase()}
               </div>
             )}
             <div>
               <div style={{ fontWeight: 700, fontSize: 18 }}>{user.nome}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{user.email}</div>
-              <span style={{ fontSize: 11, background: userRole === 'admin' ? 'var(--accent)' : 'var(--surface)', color: userRole === 'admin' ? '#000' : 'var(--muted)', border: userRole !== 'admin' ? '1px solid var(--border)' : 'none', borderRadius: 4, padding: '2px 7px' }}>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{user.email}</div>
+              <span style={{ fontSize: 11, background: userRole === 'admin' ? 'var(--accent)' : 'var(--surface)', color: userRole === 'admin' ? '#fff' : 'var(--muted)', border: userRole !== 'admin' ? '1px solid var(--border)' : 'none', borderRadius: 4, padding: '2px 7px' }}>
                 {userRole === 'admin' ? 'ADMIN' : 'Afiliado'}
               </span>
             </div>
@@ -108,10 +108,12 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
           <button className="btn-filter" onClick={fetchCpas}>Filtrar</button>
         </div>
 
-        <div className="resumo-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 16 }}>
+        {/* 4 blocos */}
+        <div className="resumo-grid" style={{ marginBottom: 16 }}>
           <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
-          <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val" style={{ color: 'var(--accent)' }}>{fmtVal(stats.faturamento)}</div></div>
-          <div className="resumo-card"><div className="resumo-label">Total Dep.</div><div className="resumo-val green">{fmtVal(stats.totalDeposito)}</div></div>
+          <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(stats.faturamento)}</div></div>
+          <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(stats.custo)}</div></div>
+          <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--accent)' : 'var(--green)' }}>{fmtVal(stats.lucro)}</div></div>
         </div>
 
         <div className="chips" style={{ marginBottom: 12 }}>
@@ -147,12 +149,14 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>
-                      {cpa.valorDeposito > 0 && <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Dep: R$ {Number(cpa.valorDeposito).toLocaleString('pt-BR')}</span>}
+                      {cpa.valorDeposito > 0 && (
+                        <span style={{ color: 'var(--muted)', fontSize: 11 }}>Dep: R$ {Number(cpa.valorDeposito).toLocaleString('pt-BR')}</span>
+                      )}
                       {imgs.length > 0 && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 {imgs.length}</span>}
                     </div>
                   </div>
                   <div className="cpa-actions">
-                    <span className="cpa-valor" style={{ color: valorExibido < 0 ? 'var(--red)' : 'var(--accent)' }}>
+                    <span className="cpa-valor" style={{ color: valorExibido < 0 ? 'var(--accent)' : 'var(--accent)' }}>
                       {fmtVal(valorExibido)}
                     </span>
                   </div>

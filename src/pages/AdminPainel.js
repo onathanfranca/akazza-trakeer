@@ -6,16 +6,9 @@ import { useAllCPAs } from '../hooks/useAllCPAs';
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 
 function fmtVal(n) {
-  const num = Number(n || 0);
-  return `R$ ${Math.abs(num).toLocaleString('pt-BR')}`;
+  return `R$ ${Number(Math.abs(n || 0)).toLocaleString('pt-BR')}`;
 }
 
-function ValColor({ value, className }) {
-  const num = Number(value || 0);
-  return <span className={className} style={{ color: num < 0 ? 'var(--red)' : undefined }}>{fmtVal(num)}</span>;
-}
-
-// Pega o valor do CPA: usa valorCPA congelado se existir, senão busca na casa pelo role
 function getValorCPA(cpa, casa, userRole) {
   if (cpa.valorCPA != null) return Number(cpa.valorCPA);
   if (!casa) return 0;
@@ -23,13 +16,13 @@ function getValorCPA(cpa, casa, userRole) {
   return casa.valorAfiliado ?? casa.valor ?? 0;
 }
 
-export default function AdminPainel({ casas, users, metaDiaria }) {
+export default function AdminPainel({ casas, users, metaDiaria, onNewCPA }) {
   const [dateFrom, setDateFrom] = useState(today());
   const [dateTo, setDateTo] = useState(today());
   const [applied, setApplied] = useState({ from: today(), to: today() });
   const [filterCasa, setFilterCasa] = useState('Todas');
 
-  const { cpas, loading } = useAllCPAs(applied.from, applied.to);
+  const { cpas, loading } = useAllCPAs(applied.from, applied.to, onNewCPA);
 
   const afiliadoStats = useMemo(() => {
     const map = {};
@@ -37,19 +30,22 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
-      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, role: user.role, count: 0, faturamento: 0, totalDeposito: 0 };
+      if (!map[cpa.uid]) map[cpa.uid] = {
+        nome: user.nome, foto: user.foto || null, role: user.role,
+        count: 0, faturamento: 0, custo: 0
+      };
       const casa = casas.find(c => c.nome === cpa.casa);
       map[cpa.uid].count++;
       map[cpa.uid].faturamento += getValorCPA(cpa, casa, user.role);
-      if (cpa.valorDeposito) map[cpa.uid].totalDeposito += Number(cpa.valorDeposito);
+      map[cpa.uid].custo += Number(cpa.valorDeposito || 0);
     });
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [cpas, users, casas, filterCasa]);
 
   const totals = useMemo(() => {
-    let total = 0, fat = 0, deposito = 0;
-    afiliadoStats.forEach(a => { total += a.count; fat += a.faturamento; deposito += a.totalDeposito; });
-    return { total, fat, deposito };
+    let total = 0, fat = 0, custo = 0;
+    afiliadoStats.forEach(a => { total += a.count; fat += a.faturamento; custo += a.custo; });
+    return { total, fat, custo, lucro: fat - custo };
   }, [afiliadoStats]);
 
   const pct = Math.min((totals.total / (metaDiaria || 50)) * 100, 100);
@@ -64,10 +60,12 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
         <button className="btn-filter" onClick={() => setApplied({ from: dateFrom, to: dateTo })}>Filtrar</button>
       </div>
 
-      <div className="resumo-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      {/* 4 blocos */}
+      <div className="resumo-grid">
         <div className="resumo-card"><div className="resumo-label">Total CPAs</div><div className="resumo-val white">{totals.total}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val" style={{ color: 'var(--accent)' }}>{fmtVal(totals.fat)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Total Depósitos</div><div className="resumo-val green">{fmtVal(totals.deposito)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(totals.fat)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(totals.custo)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--accent)' : 'var(--green)' }}>{fmtVal(totals.lucro)}</div></div>
       </div>
 
       <div className="meta-bar">
@@ -99,29 +97,33 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
         <div className="empty"><div className="empty-icon">📊</div>Nenhum CPA neste período.</div>
       ) : (
         <div className="aff-grid">
-          {afiliadoStats.map(aff => (
-            <div className="aff-card" key={aff.nome}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                {aff.foto ? (
-                  <img src={aff.foto} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)' }} />
-                ) : (
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: 'var(--text-muted)' }}>
-                    {(aff.nome || '?')[0].toUpperCase()}
+          {afiliadoStats.map(aff => {
+            const lucro = aff.faturamento - aff.custo;
+            return (
+              <div className="aff-card" key={aff.nome}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  {aff.foto ? (
+                    <img src={aff.foto} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)' }} />
+                  ) : (
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+                      {(aff.nome || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="aff-name">{aff.nome}</div>
+                    {aff.role === 'admin' && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>ADMIN</span>}
                   </div>
-                )}
-                <div>
-                  <div className="aff-name">{aff.nome}</div>
-                  {aff.role === 'admin' && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#000', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>ADMIN</span>}
+                </div>
+                <div className="aff-cpas">{aff.count}<span> CPAs</span></div>
+                <div className="aff-fin">
+                  <div className="fin-row"><span className="fin-label">Faturamento</span><span className="fin-val yellow">{fmtVal(aff.faturamento)}</span></div>
+                  <div className="fin-row"><span className="fin-label">Lucro</span><span className="fin-val" style={{ color: lucro < 0 ? 'var(--accent)' : 'var(--green)' }}>{fmtVal(lucro)}</span></div>
+                  <div className="fin-row"><span className="fin-label">Custo (Dep.)</span><span className="fin-val red">{fmtVal(aff.custo)}</span></div>
+                  <div className="fin-row"><span className="fin-label">R$/CPA</span><span className="fin-val">{aff.count > 0 ? fmtVal(Math.round(aff.faturamento / aff.count)) : '--'}</span></div>
                 </div>
               </div>
-              <div className="aff-cpas">{aff.count}<span> CPAs</span></div>
-              <div className="aff-fin">
-                <div className="fin-row"><span className="fin-label">Faturamento</span><span className="fin-val" style={{ color: 'var(--accent)' }}>{fmtVal(aff.faturamento)}</span></div>
-                <div className="fin-row"><span className="fin-label">Total Dep.</span><span className="fin-val green">{fmtVal(aff.totalDeposito)}</span></div>
-                <div className="fin-row"><span className="fin-label">R$/CPA</span><span className="fin-val">{aff.count > 0 ? fmtVal(Math.round(aff.faturamento / aff.count)) : '--'}</span></div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
