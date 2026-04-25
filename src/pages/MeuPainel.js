@@ -28,15 +28,21 @@ function compressImage(file) {
   });
 }
 
-// Pega valor afiliado com fallback para campo legado
-function getValorAfiliado(casa) {
-  return casa?.valorAfiliado ?? casa?.valor ?? 0;
-}
-function getCustoAfiliado(casa) {
-  return casa?.custoAfiliado ?? casa?.custo ?? 0;
+function getValorAfiliado(casa) { return casa?.valorAfiliado ?? casa?.valor ?? 0; }
+
+function fmtVal(n) {
+  const num = Number(n || 0);
+  const str = `R$ ${Math.abs(num).toLocaleString('pt-BR')}`;
+  return num < 0 ? `-${str}` : str;
 }
 
-export default function MeuPainel({ casas, metaDiaria }) {
+function ValorDisplay({ value, className }) {
+  const num = Number(value || 0);
+  const color = num < 0 ? 'var(--red)' : undefined;
+  return <span className={className} style={color ? { color } : {}}>{fmtVal(num)}</span>;
+}
+
+export default function MeuPainel({ casas, metaDiaria, userProfile }) {
   const { currentUser } = useAuth();
   const { showCPAToast, showToast } = useToast();
 
@@ -48,6 +54,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   const [selectedCasa, setSelectedCasa] = useState('');
   const [depositante, setDepositante] = useState('');
+  const [valorDeposito, setValorDeposito] = useState('');
   const [comprovantes, setComprovantes] = useState([]);
   const [adding, setAdding] = useState(false);
   const [filterCasa, setFilterCasa] = useState('Todas');
@@ -66,12 +73,17 @@ export default function MeuPainel({ casas, metaDiaria }) {
   );
 
   const stats = useMemo(() => {
-    let faturamento = 0, custo = 0;
+    let faturamento = 0;
     cpas.forEach(c => {
-      const casa = casas.find(x => x.nome === c.casa);
-      if (casa) { faturamento += getValorAfiliado(casa); custo += getCustoAfiliado(casa); }
+      // Usa valorCPA congelado se existir, senão busca na casa
+      if (c.valorCPA != null) {
+        faturamento += Number(c.valorCPA);
+      } else {
+        const casa = casas.find(x => x.nome === c.casa);
+        if (casa) faturamento += getValorAfiliado(casa);
+      }
     });
-    return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
+    return { total: cpas.length, faturamento };
   }, [cpas, casas]);
 
   const pct = Math.min((stats.total / (metaDiaria || 50)) * 100, 100);
@@ -92,11 +104,18 @@ export default function MeuPainel({ casas, metaDiaria }) {
   async function handleAdd() {
     if (!selectedCasa) { showToast('⚠️ Selecione uma casa!', 'yellow'); return; }
     if (!depositante.trim()) { showToast('⚠️ Nome do depositante é obrigatório!', 'yellow'); return; }
+    if (!valorDeposito || Number(valorDeposito) <= 0) { showToast('⚠️ Informe o valor do depósito!', 'yellow'); return; }
     if (comprovantes.length === 0) { showToast('⚠️ Anexe pelo menos 1 comprovante!', 'yellow'); return; }
+
+    // Congela o valorCPA vigente no momento do registro
+    const casa = casas.find(c => c.nome === selectedCasa);
+    const valorCPA = getValorAfiliado(casa);
+
     setAdding(true);
     try {
-      await addCPA(selectedCasa, depositante.trim(), comprovantes);
+      await addCPA(selectedCasa, depositante.trim(), comprovantes, valorCPA, Number(valorDeposito));
       setDepositante('');
+      setValorDeposito('');
       setComprovantes([]);
       showCPAToast();
     } catch { showToast('Erro ao registrar CPA.', 'red'); }
@@ -156,15 +175,13 @@ export default function MeuPainel({ casas, metaDiaria }) {
     return format(d, 'HH:mm');
   }
 
-  function fmt(n) { return `R$ ${n.toLocaleString('pt-BR')}`; }
-
   return (
     <div className="fade-in">
       {/* Lightbox */}
       {viewingImg && (
         <div onClick={() => setViewingImg(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <img src={viewingImg} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
-          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 18, cursor: 'pointer' }}>✕</button>
+          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#000', fontSize: 18, cursor: 'pointer' }}>✕</button>
         </div>
       )}
 
@@ -176,11 +193,10 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <button className="btn-filter" onClick={() => setApplied({ from: dateFrom, to: dateTo })}>Filtrar</button>
       </div>
 
-      <div className="resumo-grid">
+      {/* Stats — sem custo */}
+      <div className="resumo-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
         <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmt(stats.faturamento)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Custo</div><div className="resumo-val red">{fmt(stats.custo)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val green">{fmt(stats.lucro)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val" style={{ color: 'var(--accent)' }}>{fmtVal(stats.faturamento)}</div></div>
       </div>
 
       <div className="meta-bar">
@@ -198,6 +214,29 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       </div>
 
+      {/* Links de divulgação */}
+      {casas.some(c => c.link) && (
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', marginBottom: 18 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 2, color: 'var(--accent)', marginBottom: 12 }}>🔗 LINKS DE DIVULGAÇÃO</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {casas.filter(c => c.link).map(c => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface)', borderRadius: 8, padding: '10px 14px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>🏠 {c.nome}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.link}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => { navigator.clipboard.writeText(c.link); showToast('✅ Link copiado!', 'green'); }}
+                    style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text)', cursor: 'pointer' }}>📋 Copiar</button>
+                  <a href={c.link} target="_blank" rel="noopener noreferrer"
+                    style={{ background: 'var(--accent)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#000', fontWeight: 700, textDecoration: 'none' }}>Abrir →</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Add CPA */}
       <div className="add-box">
         <div className="add-title">➕ Registrar CPA</div>
@@ -207,17 +246,25 @@ export default function MeuPainel({ casas, metaDiaria }) {
             {casas.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
           </select>
           <div style={{ position: 'relative' }}>
-            <input className="input-field" type="text"
-              placeholder="Nome do depositante *"
-              value={depositante}
-              onChange={e => setDepositante(e.target.value)}
-              style={{ borderColor: depositante.trim() ? 'var(--border)' : 'var(--accent)' }}
-            />
+            <input className="input-field" type="text" placeholder="Nome do depositante *"
+              value={depositante} onChange={e => setDepositante(e.target.value)}
+              style={{ borderColor: depositante.trim() ? 'var(--border)' : 'var(--accent)' }} />
             {!depositante.trim() && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--accent)' }}>obrigatório</span>}
           </div>
         </div>
 
-        {/* Comprovantes — obrigatório */}
+        {/* Valor do depósito */}
+        <div style={{ marginTop: 8 }}>
+          <div style={{ position: 'relative' }}>
+            <input className="input-field" type="number" min="0" step="0.01"
+              placeholder="Valor do depósito (R$) *"
+              value={valorDeposito} onChange={e => setValorDeposito(e.target.value)}
+              style={{ borderColor: (!valorDeposito || Number(valorDeposito) <= 0) ? 'var(--accent)' : 'var(--border)' }} />
+            {(!valorDeposito || Number(valorDeposito) <= 0) && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--accent)' }}>obrigatório</span>}
+          </div>
+        </div>
+
+        {/* Comprovantes */}
         <div style={{ marginTop: 10 }}>
           {comprovantes.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -225,7 +272,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                 <div key={idx} style={{ position: 'relative' }}>
                   <img src={img} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
                     style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
-                  <button onClick={() => removeComprovante(idx)} style={{ position: 'absolute', top: -6, right: -6, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
+                  <button onClick={() => removeComprovante(idx)} style={{ position: 'absolute', top: -6, right: -6, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#000', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
                 </div>
               ))}
             </div>
@@ -245,6 +292,17 @@ export default function MeuPainel({ casas, metaDiaria }) {
           )}
         </div>
 
+        {/* Preview do valor CPA que será congelado */}
+        {selectedCasa && (() => {
+          const casa = casas.find(c => c.nome === selectedCasa);
+          const val = getValorAfiliado(casa);
+          return val > 0 ? (
+            <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--surface)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+              💰 Valor do CPA: <strong style={{ color: 'var(--accent)' }}>R$ {val.toLocaleString('pt-BR')}</strong> <span style={{ fontSize: 11 }}>(será congelado no registro)</span>
+            </div>
+          ) : null;
+        })()}
+
         <button className="btn-primary btn-full" style={{ marginTop: 12 }} onClick={handleAdd} disabled={adding}>
           {adding ? 'Registrando...' : '+ Registrar CPA'}
         </button>
@@ -256,32 +314,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         ))}
       </div>
 
-      {/* Links de divulgação */}
-      {casas.some(c => c.link) && (
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', marginBottom: 18 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 2, color: 'var(--accent)', marginBottom: 12 }}>🔗 LINKS DE DIVULGAÇÃO</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {casas.filter(c => c.link).map(c => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface)', borderRadius: 8, padding: '10px 14px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>🏠 {c.nome}</span>
-                  <span style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.link}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(c.link); }}
-                    style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
-                  >📋 Copiar</button>
-                  <a href={c.link} target="_blank" rel="noopener noreferrer"
-                    style={{ background: 'var(--accent)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#000', fontWeight: 700, textDecoration: 'none', fontFamily: 'var(--font-body)' }}
-                  >Abrir →</a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="section-title">📋 Histórico</div>
 
       {loading ? (
@@ -292,6 +324,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="cpa-list">
           {filteredCPAs.map(cpa => {
             const casa = casas.find(c => c.nome === cpa.casa);
+            const valorExibido = cpa.valorCPA != null ? Number(cpa.valorCPA) : getValorAfiliado(casa);
             const imgs = getComprovantes(cpa);
             const isEditing = editingId === cpa.id;
             return (
@@ -310,11 +343,14 @@ export default function MeuPainel({ casas, metaDiaria }) {
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>
+                      {cpa.valorDeposito > 0 && <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Dep: R$ {Number(cpa.valorDeposito).toLocaleString('pt-BR')}</span>}
                       {imgs.length > 0 && !isEditing && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 {imgs.length}</span>}
                     </div>
                   </div>
                   <div className="cpa-actions">
-                    <span className="cpa-valor">{casa ? fmt(getValorAfiliado(casa)) : '--'}</span>
+                    <span className="cpa-valor" style={{ color: valorExibido < 0 ? 'var(--red)' : 'var(--accent)' }}>
+                      R$ {Math.abs(valorExibido).toLocaleString('pt-BR')}
+                    </span>
                     <button className="btn-icon" onClick={() => isEditing ? cancelEdit() : startEdit(cpa)}>✏️</button>
                     <button className="btn-danger" onClick={() => handleRemove(cpa.id)}>✕</button>
                   </div>

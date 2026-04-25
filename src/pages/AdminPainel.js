@@ -5,16 +5,22 @@ import { useAllCPAs } from '../hooks/useAllCPAs';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 
-function getValor(casa, user) {
-  if (!casa) return 0;
-  if (user?.role === 'admin') return casa.valorAdmin ?? casa.valor ?? 0;
-  return casa.valorAfiliado ?? casa.valor ?? 0;
+function fmtVal(n) {
+  const num = Number(n || 0);
+  return `R$ ${Math.abs(num).toLocaleString('pt-BR')}`;
 }
 
-function getCusto(casa, user) {
+function ValColor({ value, className }) {
+  const num = Number(value || 0);
+  return <span className={className} style={{ color: num < 0 ? 'var(--red)' : undefined }}>{fmtVal(num)}</span>;
+}
+
+// Pega o valor do CPA: usa valorCPA congelado se existir, senão busca na casa pelo role
+function getValorCPA(cpa, casa, userRole) {
+  if (cpa.valorCPA != null) return Number(cpa.valorCPA);
   if (!casa) return 0;
-  if (user?.role === 'admin') return casa.custoAdmin ?? casa.custo ?? 0;
-  return casa.custoAfiliado ?? casa.custo ?? 0;
+  if (userRole === 'admin') return casa.valorAdmin ?? casa.valor ?? 0;
+  return casa.valorAfiliado ?? casa.valor ?? 0;
 }
 
 export default function AdminPainel({ casas, users, metaDiaria }) {
@@ -31,25 +37,22 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
-      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, role: user.role, count: 0, faturamento: 0, custo: 0 };
+      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, role: user.role, count: 0, faturamento: 0, totalDeposito: 0 };
       const casa = casas.find(c => c.nome === cpa.casa);
       map[cpa.uid].count++;
-      if (casa) {
-        map[cpa.uid].faturamento += getValor(casa, user);
-        map[cpa.uid].custo += getCusto(casa, user);
-      }
+      map[cpa.uid].faturamento += getValorCPA(cpa, casa, user.role);
+      if (cpa.valorDeposito) map[cpa.uid].totalDeposito += Number(cpa.valorDeposito);
     });
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [cpas, users, casas, filterCasa]);
 
   const totals = useMemo(() => {
-    let total = 0, fat = 0, custo = 0;
-    afiliadoStats.forEach(a => { total += a.count; fat += a.faturamento; custo += a.custo; });
-    return { total, fat, custo, lucro: fat - custo };
+    let total = 0, fat = 0, deposito = 0;
+    afiliadoStats.forEach(a => { total += a.count; fat += a.faturamento; deposito += a.totalDeposito; });
+    return { total, fat, deposito };
   }, [afiliadoStats]);
 
   const pct = Math.min((totals.total / (metaDiaria || 50)) * 100, 100);
-  function fmt(n) { return `R$ ${n.toLocaleString('pt-BR')}`; }
 
   return (
     <div className="fade-in">
@@ -61,11 +64,10 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
         <button className="btn-filter" onClick={() => setApplied({ from: dateFrom, to: dateTo })}>Filtrar</button>
       </div>
 
-      <div className="resumo-grid">
+      <div className="resumo-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <div className="resumo-card"><div className="resumo-label">Total CPAs</div><div className="resumo-val white">{totals.total}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmt(totals.fat)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Custo</div><div className="resumo-val red">{fmt(totals.custo)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val green">{fmt(totals.lucro)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val" style={{ color: 'var(--accent)' }}>{fmtVal(totals.fat)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Total Depósitos</div><div className="resumo-val green">{fmtVal(totals.deposito)}</div></div>
       </div>
 
       <div className="meta-bar">
@@ -109,15 +111,14 @@ export default function AdminPainel({ casas, users, metaDiaria }) {
                 )}
                 <div>
                   <div className="aff-name">{aff.nome}</div>
-                  {aff.role === 'admin' && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>ADMIN</span>}
+                  {aff.role === 'admin' && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#000', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>ADMIN</span>}
                 </div>
               </div>
               <div className="aff-cpas">{aff.count}<span> CPAs</span></div>
               <div className="aff-fin">
-                <div className="fin-row"><span className="fin-label">Faturamento</span><span className="fin-val yellow">{fmt(aff.faturamento)}</span></div>
-                <div className="fin-row"><span className="fin-label">Lucro</span><span className="fin-val green">{fmt(aff.faturamento - aff.custo)}</span></div>
-                <div className="fin-row"><span className="fin-label">Custo</span><span className="fin-val red">{fmt(aff.custo)}</span></div>
-                <div className="fin-row"><span className="fin-label">R$/CPA</span><span className="fin-val">{aff.count > 0 ? fmt(Math.round(aff.faturamento / aff.count)) : '--'}</span></div>
+                <div className="fin-row"><span className="fin-label">Faturamento</span><span className="fin-val" style={{ color: 'var(--accent)' }}>{fmtVal(aff.faturamento)}</span></div>
+                <div className="fin-row"><span className="fin-label">Total Dep.</span><span className="fin-val green">{fmtVal(aff.totalDeposito)}</span></div>
+                <div className="fin-row"><span className="fin-label">R$/CPA</span><span className="fin-val">{aff.count > 0 ? fmtVal(Math.round(aff.faturamento / aff.count)) : '--'}</span></div>
               </div>
             </div>
           ))}

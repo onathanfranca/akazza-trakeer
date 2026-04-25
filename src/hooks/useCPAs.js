@@ -34,11 +34,9 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       if (isFirstLoad.current) {
-        // Primeira carga — apenas registra os IDs existentes, sem notificar
         docs.forEach(d => knownIds.current.add(d.id));
         isFirstLoad.current = false;
       } else {
-        // Novas chegadas após a carga inicial
         snap.docChanges().forEach(change => {
           if (change.type === 'added' && !knownIds.current.has(change.doc.id)) {
             knownIds.current.add(change.doc.id);
@@ -55,11 +53,15 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
     return unsub;
   }, [uid, dateFrom, dateTo]);
 
-  async function addCPA(casa, player = '', comprovantes = []) {
+  // valorCPA é congelado no momento do registro
+  // valorDeposito é o valor informado pelo afiliado
+  async function addCPA(casa, player = '', comprovantes = [], valorCPA = 0, valorDeposito = 0) {
     const data = {
       uid,
       casa,
       player,
+      valorCPA: Number(valorCPA),       // congelado no momento do registro
+      valorDeposito: Number(valorDeposito),
       createdAt: serverTimestamp(),
     };
     if (comprovantes && comprovantes.length > 0) data.comprovantes = comprovantes;
