@@ -8,7 +8,11 @@ import { useToast } from '../context/ToastContext';
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
 
-function getValorAfiliado(casa) { return casa?.valorAfiliado ?? casa?.valor ?? 0; }
+function getValorPorRole(casa, role) {
+  if (!casa) return 0;
+  if (role === 'admin') return casa?.valorAdmin ?? casa?.valor ?? 0;
+  return casa?.valorAfiliado ?? casa?.valor ?? 0;
+}
 
 function fmtVal(n) { return `R$ ${Number(Math.abs(n || 0)).toLocaleString('pt-BR')}`; }
 
@@ -22,7 +26,7 @@ function previewImagem(file) {
 }
 
 export default function MeuPainel({ casas, metaDiaria }) {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile, isAdmin } = useAuth();
   const { showCPAToast, showToast } = useToast();
 
   const [periodo, setPeriodo] = useState('7d');
@@ -57,7 +61,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const stats = useMemo(() => {
     let faturamento = 0, custo = 0;
     cpas.forEach(c => {
-      faturamento += c.valorCPA != null ? Number(c.valorCPA) : getValorAfiliado(casas.find(x => x.nome === c.casa));
+      faturamento += c.valorCPA != null ? Number(c.valorCPA) : getValorPorRole(casas.find(x => x.nome === c.casa), userProfile?.role);
       custo += Number(c.valorDeposito || 0);
     });
     return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
@@ -85,7 +89,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
     if (imagens.length === 0) { showToast('⚠️ Anexe pelo menos 1 comprovante!', 'yellow'); return; }
 
     const casa = casas.find(c => c.nome === selectedCasa);
-    const valorCPA = getValorAfiliado(casa);
+    const valorCPA = getValorPorRole(casa, userProfile?.role);
 
     setAdding(true);
     setUploadProgress('Enviando comprovantes...');
@@ -323,7 +327,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
         {/* Preview valor CPA */}
         {selectedCasa && (() => {
           const casa = casas.find(c => c.nome === selectedCasa);
-          const val = getValorAfiliado(casa);
+          const val = getValorPorRole(casa, userProfile?.role);
           return val > 0 ? (
             <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--surface)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)' }}>
               💰 Valor do CPA: <strong style={{ color: 'var(--accent)' }}>R$ {val.toLocaleString('pt-BR')}</strong> <span style={{ fontSize: 11 }}>(será congelado no registro)</span>
@@ -357,7 +361,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="cpa-list">
           {filteredCPAs.map(cpa => {
             const casa = casas.find(c => c.nome === cpa.casa);
-            const valorExibido = cpa.valorCPA != null ? Number(cpa.valorCPA) : getValorAfiliado(casa);
+            const valorExibido = cpa.valorCPA != null ? Number(cpa.valorCPA) : getValorPorRole(casa, userProfile?.role);
             const imgs = getComprovantes(cpa);
             const isEditing = editingId === cpa.id;
             return (
