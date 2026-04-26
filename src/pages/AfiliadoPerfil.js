@@ -113,7 +113,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
           <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
           <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(stats.faturamento)}</div></div>
           <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(stats.custo)}</div></div>
-          <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--accent)' : 'var(--green)' }}>{fmtVal(stats.lucro)}</div></div>
+          <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--red)' : 'var(--green)' }}>{fmtVal(stats.lucro)}</div></div>
         </div>
 
         <div className="chips" style={{ marginBottom: 12 }}>

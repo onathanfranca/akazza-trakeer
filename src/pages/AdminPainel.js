@@ -65,7 +65,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA }) {
         <div className="resumo-card"><div className="resumo-label">Total CPAs</div><div className="resumo-val white">{totals.total}</div></div>
         <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(totals.fat)}</div></div>
         <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(totals.custo)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--accent)' : 'var(--green)' }}>{fmtVal(totals.lucro)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--red)' : 'var(--green)' }}>{fmtVal(totals.lucro)}</div></div>
       </div>
 
       <div className="meta-bar">
@@ -117,7 +117,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA }) {
                 <div className="aff-cpas">{aff.count}<span> CPAs</span></div>
                 <div className="aff-fin">
                   <div className="fin-row"><span className="fin-label">Faturamento</span><span className="fin-val yellow">{fmtVal(aff.faturamento)}</span></div>
-                  <div className="fin-row"><span className="fin-label">Lucro</span><span className="fin-val" style={{ color: lucro < 0 ? 'var(--accent)' : 'var(--green)' }}>{fmtVal(lucro)}</span></div>
+                  <div className="fin-row"><span className="fin-label">Lucro</span><span className="fin-val" style={{ color: lucro < 0 ? 'var(--red)' : 'var(--green)' }}>{fmtVal(lucro)}</span></div>
                   <div className="fin-row"><span className="fin-label">Custo (Dep.)</span><span className="fin-val red">{fmtVal(aff.custo)}</span></div>
                   <div className="fin-row"><span className="fin-label">R$/CPA</span><span className="fin-val">{aff.count > 0 ? fmtVal(Math.round(aff.faturamento / aff.count)) : '--'}</span></div>
                 </div>
