@@ -8,47 +8,21 @@ import { useToast } from '../context/ToastContext';
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
 
-function compressImage(file) {
+function getValorAfiliado(casa) { return casa?.valorAfiliado ?? casa?.valor ?? 0; }
+
+function fmtVal(n) { return `R$ ${Number(Math.abs(n || 0)).toLocaleString('pt-BR')}`; }
+
+// Gera preview base64 para exibição imediata
+function previewImagem(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX = 800;
-        let w = img.width, h = img.height;
-        if (w > MAX) { h = (h * MAX) / w; w = MAX; }
-        if (h > MAX) { w = (w * MAX) / h; h = MAX; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
-      };
-      img.src = ev.target.result;
-    };
+    reader.onload = (ev) => resolve({ file, preview: ev.target.result });
     reader.readAsDataURL(file);
   });
 }
 
-// Respeita o role do usuário
-function getValorCasa(casa, isAdmin) {
-  if (!casa) return 0;
-  if (isAdmin) return casa.valorAdmin ?? casa.valor ?? 0;
-  return casa.valorAfiliado ?? casa.valor ?? 0;
-}
-
-function fmtVal(n) {
-  return `R$ ${Number(Math.abs(n || 0)).toLocaleString('pt-BR')}`;
-}
-
-function formatTime(ts) {
-  if (!ts) return '--:--';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return format(d, 'HH:mm');
-}
-
 export default function MeuPainel({ casas, metaDiaria }) {
-  const { currentUser, userProfile } = useAuth();
-  const isAdmin = userProfile?.role === 'admin';
+  const { currentUser } = useAuth();
   const { showCPAToast, showToast } = useToast();
 
   const [periodo, setPeriodo] = useState('7d');
@@ -61,13 +35,15 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const [selectedCasa, setSelectedCasa] = useState('');
   const [depositante, setDepositante] = useState('');
   const [valorDeposito, setValorDeposito] = useState('');
-  const [comprovantes, setComprovantes] = useState([]);
+  // imagens: array de { file: File, preview: string }
+  const [imagens, setImagens] = useState([]);
   const [adding, setAdding] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [filterCasa, setFilterCasa] = useState('Todas');
   const [editingId, setEditingId] = useState(null);
   const [editNome, setEditNome] = useState('');
   const [editCasaVal, setEditCasaVal] = useState('');
-  const [editImgs, setEditImgs] = useState([]);
+  const [editImgs, setEditImgs] = useState([]); // URLs existentes + novos { file, preview }
   const [savingImgs, setSavingImgs] = useState(false);
   const [viewingImg, setViewingImg] = useState(null);
   const fileRef = useRef();
@@ -78,54 +54,54 @@ export default function MeuPainel({ casas, metaDiaria }) {
     [cpas, filterCasa]
   );
 
-  // 4 blocos: CPAs, Faturamento, Custo (deposito), Lucro
   const stats = useMemo(() => {
     let faturamento = 0, custo = 0;
     cpas.forEach(c => {
-      if (c.valorCPA != null) {
-        faturamento += Number(c.valorCPA);
-      } else {
-        const casa = casas.find(x => x.nome === c.casa);
-        faturamento += getValorCasa(casa, isAdmin);
-      }
+      faturamento += c.valorCPA != null ? Number(c.valorCPA) : getValorAfiliado(casas.find(x => x.nome === c.casa));
       custo += Number(c.valorDeposito || 0);
     });
     return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
-  }, [cpas, casas, isAdmin]);
+  }, [cpas, casas]);
 
   const pct = Math.min((stats.total / (metaDiaria || 50)) * 100, 100);
 
   async function handleFileChange(e) {
     const files = Array.from(e.target.files);
-    const remaining = 4 - comprovantes.length;
+    const remaining = 4 - imagens.length;
     if (remaining <= 0) { showToast('Máximo de 4 comprovantes!', 'yellow'); return; }
-    const compressed = await Promise.all(files.slice(0, remaining).map(compressImage));
-    setComprovantes(prev => [...prev, ...compressed]);
+    const previews = await Promise.all(files.slice(0, remaining).map(previewImagem));
+    setImagens(prev => [...prev, ...previews]);
     if (fileRef.current) fileRef.current.value = '';
   }
 
-  function removeComprovante(idx) {
-    setComprovantes(prev => prev.filter((_, i) => i !== idx));
+  function removeImagem(idx) {
+    setImagens(prev => prev.filter((_, i) => i !== idx));
   }
 
   async function handleAdd() {
     if (!selectedCasa) { showToast('⚠️ Selecione uma casa!', 'yellow'); return; }
     if (!depositante.trim()) { showToast('⚠️ Nome do depositante é obrigatório!', 'yellow'); return; }
     if (!valorDeposito || Number(valorDeposito) <= 0) { showToast('⚠️ Informe o valor do depósito!', 'yellow'); return; }
-    if (comprovantes.length === 0) { showToast('⚠️ Anexe pelo menos 1 comprovante!', 'yellow'); return; }
+    if (imagens.length === 0) { showToast('⚠️ Anexe pelo menos 1 comprovante!', 'yellow'); return; }
 
-    // Congela valorCPA pelo role do usuário no momento do registro
     const casa = casas.find(c => c.nome === selectedCasa);
-    const valorCPA = getValorCasa(casa, isAdmin);
+    const valorCPA = getValorAfiliado(casa);
 
     setAdding(true);
+    setUploadProgress('Enviando comprovantes...');
     try {
-      await addCPA(selectedCasa, depositante.trim(), comprovantes, valorCPA, Number(valorDeposito));
+      // Passa os Files para o useCPAs que faz o upload para o Storage
+      await addCPA(selectedCasa, depositante.trim(), imagens.map(i => i.file), valorCPA, Number(valorDeposito));
       setDepositante('');
       setValorDeposito('');
-      setComprovantes([]);
-      showCPAToast(selectedCasa);
-    } catch { showToast('Erro ao registrar CPA.', 'red'); }
+      setImagens([]);
+      setUploadProgress('');
+      showCPAToast();
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao registrar CPA.', 'red');
+      setUploadProgress('');
+    }
     setAdding(false);
   }
 
@@ -144,6 +120,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
     setEditingId(cpa.id);
     setEditNome(cpa.player || '');
     setEditCasaVal(cpa.casa);
+    // URLs existentes ficam como string, novos como { file, preview }
     setEditImgs(getComprovantes(cpa));
   }
 
@@ -157,8 +134,8 @@ export default function MeuPainel({ casas, metaDiaria }) {
     const files = Array.from(e.target.files);
     const remaining = 4 - editImgs.length;
     if (remaining <= 0) { showToast('Máximo de 4!', 'yellow'); return; }
-    const compressed = await Promise.all(files.slice(0, remaining).map(compressImage));
-    setEditImgs(prev => [...prev, ...compressed]);
+    const previews = await Promise.all(files.slice(0, remaining).map(previewImagem));
+    setEditImgs(prev => [...prev, ...previews]);
     if (editFileRef.current) editFileRef.current.value = '';
   }
 
@@ -169,11 +146,33 @@ export default function MeuPainel({ casas, metaDiaria }) {
   async function handleSaveEdit(id) {
     setSavingImgs(true);
     try {
-      await editCPA(id, { player: editNome, casa: editCasaVal, comprovantes: editImgs, comprovante: null });
+      // Separa URLs existentes de novos Files
+      const existingUrls = editImgs.filter(i => typeof i === 'string');
+      const newFiles = editImgs.filter(i => typeof i === 'object' && i.file).map(i => i.file);
+      // Passa tudo para editCPA — URLs existentes + novos Files
+      const allImagens = [...existingUrls, ...newFiles];
+      await editCPA(id, {
+        player: editNome,
+        casa: editCasaVal,
+        comprovantes: allImagens,
+        comprovante: null,
+      });
       showToast('✅ CPA atualizado!', 'green');
       cancelEdit();
     } catch { showToast('Erro ao atualizar.', 'red'); }
     setSavingImgs(false);
+  }
+
+  function formatTime(ts) {
+    if (!ts) return '--:--';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return format(d, 'HH:mm');
+  }
+
+  // Preview de imagem — pode ser URL do Storage ou { preview }
+  function getImgSrc(img) {
+    if (typeof img === 'string') return img;
+    return img.preview;
   }
 
   return (
@@ -181,11 +180,11 @@ export default function MeuPainel({ casas, metaDiaria }) {
       {/* Lightbox */}
       {viewingImg && (
         <div onClick={() => setViewingImg(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <img src={viewingImg} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
+          <img src={typeof viewingImg === 'string' ? viewingImg : viewingImg.preview} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
+          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#000', fontSize: 18, cursor: 'pointer' }}>✕</button>
         </div>
       )}
 
-      {/* Date Filter */}
       {/* Período rápido */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         {[
@@ -205,13 +204,11 @@ export default function MeuPainel({ casas, metaDiaria }) {
               padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600,
               border: periodo === opt.value ? '2px solid var(--accent)' : '1.5px solid var(--border)',
               background: periodo === opt.value ? 'var(--accent)' : 'var(--card)',
-              color: periodo === opt.value ? '#000' : 'var(--text)',
-              transition: 'all .15s'
+              color: periodo === opt.value ? '#000' : 'var(--text)', transition: 'all .15s'
             }}
           >{opt.label}</button>
         ))}
       </div>
-      {/* Filtro personalizado */}
       {periodo === 'custom' && (
         <div className="date-filter" style={{ marginBottom: 10 }}>
           <label>De</label>
@@ -222,12 +219,12 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       )}
 
-      {/* 4 blocos */}
+      {/* Stats */}
       <div className="resumo-grid">
         <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
         <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(stats.faturamento)}</div></div>
         <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(stats.custo)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--accent)' : 'var(--green)' }}>{fmtVal(stats.lucro)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--red)' : 'var(--green)' }}>{fmtVal(stats.lucro)}</div></div>
       </div>
 
       {/* Meta */}
@@ -246,6 +243,29 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       </div>
 
+      {/* Links de divulgação */}
+      {casas.some(c => c.link) && (
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', marginBottom: 18 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 2, color: 'var(--accent)', marginBottom: 12 }}>🔗 LINKS DE DIVULGAÇÃO</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {casas.filter(c => c.link).map(c => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface)', borderRadius: 8, padding: '10px 14px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>🏠 {c.nome}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.link}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => { navigator.clipboard.writeText(c.link); showToast('✅ Link copiado!', 'green'); }}
+                    style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text)', cursor: 'pointer' }}>📋 Copiar</button>
+                  <a href={c.link} target="_blank" rel="noopener noreferrer"
+                    style={{ background: 'var(--accent)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#000', fontWeight: 700, textDecoration: 'none' }}>Abrir →</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Add CPA */}
       <div className="add-box">
         <div className="add-title">➕ Registrar CPA</div>
@@ -262,31 +282,37 @@ export default function MeuPainel({ casas, metaDiaria }) {
           </div>
         </div>
 
-        {/* Valor do depósito */}
-        <div style={{ marginTop: 8, position: 'relative' }}>
-          <input className="input-field" type="number" min="0" step="0.01"
-            placeholder="Valor do depósito (R$) *"
-            value={valorDeposito} onChange={e => setValorDeposito(e.target.value)}
-            style={{ borderColor: (!valorDeposito || Number(valorDeposito) <= 0) ? 'var(--accent)' : 'var(--border)' }} />
-          {(!valorDeposito || Number(valorDeposito) <= 0) && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--accent)' }}>obrigatório</span>}
+        <div style={{ marginTop: 8 }}>
+          <div style={{ position: 'relative' }}>
+            <input className="input-field" type="number" min="0" step="0.01"
+              placeholder="Valor do depósito (R$) *"
+              value={valorDeposito} onChange={e => setValorDeposito(e.target.value)}
+              style={{ borderColor: (!valorDeposito || Number(valorDeposito) <= 0) ? 'var(--accent)' : 'var(--border)' }} />
+            {(!valorDeposito || Number(valorDeposito) <= 0) && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--accent)' }}>obrigatório</span>}
+          </div>
         </div>
 
         {/* Comprovantes */}
         <div style={{ marginTop: 10 }}>
-          {comprovantes.length > 0 && (
+          {imagens.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              {comprovantes.map((img, idx) => (
+              {imagens.map((img, idx) => (
                 <div key={idx} style={{ position: 'relative' }}>
-                  <img src={img} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
+                  <img src={img.preview} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
                     style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
-                  <button onClick={() => removeComprovante(idx)} style={{ position: 'absolute', top: -6, right: -6, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
+                  <button onClick={() => removeImagem(idx)} style={{ position: 'absolute', top: -6, right: -6, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#000', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
                 </div>
               ))}
             </div>
           )}
-          {comprovantes.length < 4 ? (
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '9px 14px', borderRadius: 8, border: `1.5px dashed ${comprovantes.length === 0 ? 'var(--accent)' : 'var(--border)'}`, color: comprovantes.length === 0 ? 'var(--accent)' : 'var(--muted)', fontSize: 13 }}>
-              📎 {comprovantes.length === 0 ? 'Anexar comprovante Pix *' : `Adicionar mais (${comprovantes.length}/4)`}
+          {imagens.length < 4 ? (
+            <label style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              padding: '9px 14px', borderRadius: 8,
+              border: `1.5px dashed ${imagens.length === 0 ? 'var(--accent)' : 'var(--border)'}`,
+              color: imagens.length === 0 ? 'var(--accent)' : 'var(--text-muted)', fontSize: 13
+            }}>
+              📎 {imagens.length === 0 ? 'Anexar comprovante Pix *' : `Adicionar mais (${imagens.length}/4)`}
               <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
             </label>
           ) : (
@@ -294,23 +320,27 @@ export default function MeuPainel({ casas, metaDiaria }) {
           )}
         </div>
 
-        {/* Preview valor CPA congelado */}
+        {/* Preview valor CPA */}
         {selectedCasa && (() => {
           const casa = casas.find(c => c.nome === selectedCasa);
-          const val = getValorCasa(casa, isAdmin);
+          const val = getValorAfiliado(casa);
           return val > 0 ? (
-            <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--surface)', borderRadius: 8, fontSize: 13, color: 'var(--muted)' }}>
+            <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--surface)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)' }}>
               💰 Valor do CPA: <strong style={{ color: 'var(--accent)' }}>R$ {val.toLocaleString('pt-BR')}</strong> <span style={{ fontSize: 11 }}>(será congelado no registro)</span>
             </div>
           ) : null;
         })()}
+
+        {uploadProgress && (
+          <div style={{ marginTop: 8, fontSize: 13, color: 'var(--accent)', textAlign: 'center' }}>⏳ {uploadProgress}</div>
+        )}
 
         <button className="btn-primary btn-full" style={{ marginTop: 12 }} onClick={handleAdd} disabled={adding}>
           {adding ? 'Registrando...' : '+ Registrar CPA'}
         </button>
       </div>
 
-      {/* Chips */}
+      {/* Filter chips */}
       <div className="chips">
         {['Todas', ...casas.map(c => c.nome)].map(nome => (
           <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>{nome}</div>
@@ -327,7 +357,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="cpa-list">
           {filteredCPAs.map(cpa => {
             const casa = casas.find(c => c.nome === cpa.casa);
-            const valorExibido = cpa.valorCPA != null ? Number(cpa.valorCPA) : getValorCasa(casa, isAdmin);
+            const valorExibido = cpa.valorCPA != null ? Number(cpa.valorCPA) : getValorAfiliado(casa);
             const imgs = getComprovantes(cpa);
             const isEditing = editingId === cpa.id;
             return (
@@ -346,13 +376,13 @@ export default function MeuPainel({ casas, metaDiaria }) {
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>
-                      {cpa.valorDeposito > 0 && <span style={{ color: 'var(--muted)', fontSize: 11 }}>Dep: R$ {Number(cpa.valorDeposito).toLocaleString('pt-BR')}</span>}
+                      {cpa.valorDeposito > 0 && <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Dep: R$ {Number(cpa.valorDeposito).toLocaleString('pt-BR')}</span>}
                       {imgs.length > 0 && !isEditing && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 {imgs.length}</span>}
                     </div>
                   </div>
                   <div className="cpa-actions">
-                    <span className="cpa-valor" style={{ color: valorExibido < 0 ? 'var(--accent)' : 'var(--accent)' }}>
-                      {fmtVal(valorExibido)}
+                    <span className="cpa-valor" style={{ color: valorExibido < 0 ? 'var(--red)' : 'var(--accent)' }}>
+                      R$ {Math.abs(valorExibido).toLocaleString('pt-BR')}
                     </span>
                     <button className="btn-icon" onClick={() => isEditing ? cancelEdit() : startEdit(cpa)}>✏️</button>
                     <button className="btn-danger" onClick={() => handleRemove(cpa.id)}>✕</button>
@@ -378,13 +408,13 @@ export default function MeuPainel({ casas, metaDiaria }) {
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
                         {editImgs.map((img, idx) => (
                           <div key={idx} style={{ position: 'relative' }}>
-                            <img src={img} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
+                            <img src={getImgSrc(img)} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
                               style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
                             <button onClick={() => removeEditImg(idx)} style={{ position: 'absolute', top: -6, right: -6, background: '#e53', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
                           </div>
                         ))}
                         {editImgs.length < 4 && (
-                          <label style={{ width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--muted)', fontSize: 22 }}>
+                          <label style={{ width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22 }}>
                             +
                             <input ref={editFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleEditFileChange} />
                           </label>

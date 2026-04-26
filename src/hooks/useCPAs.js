@@ -5,8 +5,52 @@ import {
   onSnapshot, addDoc, deleteDoc, updateDoc,
   doc, serverTimestamp, Timestamp
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { db, storage } from '../firebase/config';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
+
+// Comprime imagem antes de fazer upload
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 1200;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = (h * MAX) / w; w = MAX; }
+        if (h > MAX) { w = (w * MAX) / h; h = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(resolve, 'image/jpeg', 0.8);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Faz upload de uma imagem (base64 ou File) para o Storage
+async function uploadImagem(uid, cpaId, imagem, index) {
+  // Se já for uma URL do Storage, retorna ela mesma
+  if (typeof imagem === 'string' && imagem.startsWith('https://')) return imagem;
+
+  // Converte base64 para Blob se necessário
+  let blob;
+  if (typeof imagem === 'string' && imagem.startsWith('data:')) {
+    const res = await fetch(imagem);
+    blob = await res.blob();
+  } else if (imagem instanceof File) {
+    blob = await compressImage(imagem);
+  } else {
+    blob = imagem;
+  }
+
+  const storageRef = ref(storage, `comprovantes/${uid}/${cpaId}_${index}_${Date.now()}.jpg`);
+  await uploadBytes(storageRef, blob);
+  return getDownloadURL(storageRef);
+}
 
 export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
   const [cpas, setCPAs] = useState([]);
@@ -53,19 +97,27 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
     return unsub;
   }, [uid, dateFrom, dateTo]);
 
-  // valorCPA é congelado no momento do registro
-  // valorDeposito é o valor informado pelo afiliado
-  async function addCPA(casa, player = '', comprovantes = [], valorCPA = 0, valorDeposito = 0) {
-    const data = {
+  async function addCPA(casa, player = '', imagensBase64 = [], valorCPA = 0, valorDeposito = 0) {
+    // Cria o documento primeiro para ter o ID
+    const docRef = await addDoc(collection(db, 'cpas'), {
       uid,
       casa,
       player,
-      valorCPA: Number(valorCPA),       // congelado no momento do registro
+      valorCPA: Number(valorCPA),
       valorDeposito: Number(valorDeposito),
+      comprovantes: [],
       createdAt: serverTimestamp(),
-    };
-    if (comprovantes && comprovantes.length > 0) data.comprovantes = comprovantes;
-    return addDoc(collection(db, 'cpas'), data);
+    });
+
+    // Faz upload das imagens para o Storage usando o ID do doc
+    if (imagensBase64 && imagensBase64.length > 0) {
+      const urls = await Promise.all(
+        imagensBase64.map((img, i) => uploadImagem(uid, docRef.id, img, i))
+      );
+      await updateDoc(docRef, { comprovantes: urls });
+    }
+
+    return docRef;
   }
 
   async function removeCPA(id) {
@@ -73,6 +125,13 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
   }
 
   async function editCPA(id, data) {
+    // Se vier novas imagens (base64), faz upload delas
+    if (data.comprovantes && data.comprovantes.length > 0) {
+      const urls = await Promise.all(
+        data.comprovantes.map((img, i) => uploadImagem(uid, id, img, i))
+      );
+      data = { ...data, comprovantes: urls };
+    }
     return updateDoc(doc(db, 'cpas', id), data);
   }
 
