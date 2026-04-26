@@ -1,11 +1,12 @@
 // src/pages/MeuPainel.js
 import React, { useState, useMemo, useRef } from 'react';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { useCPAs } from '../hooks/useCPAs';
 import { useToast } from '../context/ToastContext';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
+function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
 
 function compressImage(file) {
   return new Promise((resolve) => {
@@ -50,9 +51,10 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const isAdmin = userProfile?.role === 'admin';
   const { showCPAToast, showToast } = useToast();
 
-  const [dateFrom, setDateFrom] = useState(today());
+  const [periodo, setPeriodo] = useState('7d');
+  const [dateFrom, setDateFrom] = useState(daysAgo(6));
   const [dateTo, setDateTo] = useState(today());
-  const [applied, setApplied] = useState({ from: today(), to: today() });
+  const [applied, setApplied] = useState({ from: daysAgo(6), to: today() });
 
   const { cpas, loading, addCPA, removeCPA, editCPA } = useCPAs(currentUser?.uid, applied.from, applied.to);
 
@@ -184,13 +186,41 @@ export default function MeuPainel({ casas, metaDiaria }) {
       )}
 
       {/* Date Filter */}
-      <div className="date-filter">
-        <label>De</label>
-        <input type="date" className="date-input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-        <label>Até</label>
-        <input type="date" className="date-input" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-        <button className="btn-filter" onClick={() => setApplied({ from: dateFrom, to: dateTo })}>Filtrar</button>
+      {/* Período rápido */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Hoje', value: '1d' },
+          { label: '7 dias', value: '7d' },
+          { label: '30 dias', value: '30d' },
+          { label: 'Personalizado', value: 'custom' },
+        ].map(opt => (
+          <button key={opt.value}
+            onClick={() => {
+              setPeriodo(opt.value);
+              if (opt.value === '1d') { const d = today(); setDateFrom(d); setDateTo(d); setApplied({ from: d, to: d }); }
+              else if (opt.value === '7d') { const f = daysAgo(6); setDateFrom(f); setDateTo(today()); setApplied({ from: f, to: today() }); }
+              else if (opt.value === '30d') { const f = daysAgo(29); setDateFrom(f); setDateTo(today()); setApplied({ from: f, to: today() }); }
+            }}
+            style={{
+              padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600,
+              border: periodo === opt.value ? '2px solid var(--accent)' : '1.5px solid var(--border)',
+              background: periodo === opt.value ? 'var(--accent)' : 'var(--card)',
+              color: periodo === opt.value ? '#000' : 'var(--text)',
+              transition: 'all .15s'
+            }}
+          >{opt.label}</button>
+        ))}
       </div>
+      {/* Filtro personalizado */}
+      {periodo === 'custom' && (
+        <div className="date-filter" style={{ marginBottom: 10 }}>
+          <label>De</label>
+          <input type="date" className="date-input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          <label>Até</label>
+          <input type="date" className="date-input" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          <button className="btn-filter" onClick={() => setApplied({ from: dateFrom, to: dateTo })}>Filtrar</button>
+        </div>
+      )}
 
       {/* 4 blocos */}
       <div className="resumo-grid">
