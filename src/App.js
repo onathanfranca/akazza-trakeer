@@ -12,6 +12,8 @@ import MeuPainel from './pages/MeuPainel';
 import Gerenciar from './pages/Gerenciar';
 import Config from './pages/Config';
 import Perfil from './pages/Perfil';
+import Fechamento from './pages/Fechamento';
+import MeusFechamentos from './pages/MeusFechamentos';
 
 import './styles/global.css';
 
@@ -67,12 +69,14 @@ function AppInner() {
     { id: 'meu', label: '🏠 Meu Painel' },
     { id: 'gerenciar', label: '👥 Afiliados' },
     { id: 'config', label: '⚙️ Config' },
+    { id: 'fechamento', label: '💰 Fechamentos' },
     { id: 'perfil', label: '👤 Perfil' },
   ];
 
   const AFF_TABS = [
     { id: 'meu', label: '🏠 Meu Painel' },
     { id: 'ranking', label: '🏆 Ranking' },
+    { id: 'meusfechamentos', label: '💰 Fechamentos' },
     { id: 'perfil', label: '👤 Perfil' },
   ];
 
@@ -128,6 +132,12 @@ function AppInner() {
         )}
         {tab === 'config' && isAdmin && (
           <Config config={config} saveConfig={saveConfig} />
+        )}
+        {tab === 'fechamento' && isAdmin && (
+          <Fechamento users={users} casas={casas} />
+        )}
+        {tab === 'meusfechamentos' && !isAdmin && (
+          <MeusFechamentos />
         )}
         {tab === 'perfil' && (
           <Perfil />

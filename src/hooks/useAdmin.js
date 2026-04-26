@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import {
   collection, onSnapshot, doc, updateDoc,
-  deleteDoc, setDoc
+  deleteDoc, setDoc, addDoc, query, orderBy,
+  where, Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -47,7 +48,6 @@ export function useCasas() {
   }
 
   async function removeCasa(id) { return deleteDoc(doc(db, 'casas', id)); }
-
   return { casas, saveCasa, addCasa, removeCasa };
 }
 
@@ -61,4 +61,52 @@ export function useConfig() {
   }, []);
   async function saveConfig(data) { return setDoc(doc(db, 'config', 'geral'), data, { merge: true }); }
   return { config, saveConfig };
+}
+
+// ─── Fechamentos ─────────────────────────────────────────────────────────────
+export function useFechamentos(uid = null) {
+  const [fechamentos, setFechamentos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let q;
+    if (uid) {
+      q = query(
+        collection(db, 'fechamentos'),
+        where('uid', '==', uid),
+        orderBy('criadoEm', 'desc')
+      );
+    } else {
+      q = query(
+        collection(db, 'fechamentos'),
+        orderBy('criadoEm', 'desc')
+      );
+    }
+    const unsub = onSnapshot(q, (snap) => {
+      setFechamentos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return unsub;
+  }, [uid]);
+
+  async function criarFechamento({ uid, nomeAfiliado, dateFrom, dateTo, totalCPAs, faturamento, valorPago, observacao }) {
+    return addDoc(collection(db, 'fechamentos'), {
+      uid,
+      nomeAfiliado,
+      dateFrom,
+      dateTo,
+      totalCPAs: Number(totalCPAs),
+      faturamento: Number(faturamento),
+      valorPago: Number(valorPago),
+      observacao: observacao || '',
+      pago: true,
+      criadoEm: Timestamp.now(),
+    });
+  }
+
+  async function deletarFechamento(id) {
+    return deleteDoc(doc(db, 'fechamentos', id));
+  }
+
+  return { fechamentos, loading, criarFechamento, deletarFechamento };
 }
