@@ -24,16 +24,12 @@ function Avatar({ foto, nome, size = 36 }) {
   );
 }
 
-function getValor(casa, user) {
+// Pega valorCPA congelado no CPA ou busca na casa pelo role
+function getValorCPA(cpa, casa, userRole) {
+  if (cpa.valorCPA != null) return Number(cpa.valorCPA);
   if (!casa) return 0;
-  if (user?.role === 'admin') return casa.valorAdmin ?? casa.valor ?? 0;
+  if (userRole === 'admin') return casa.valorAdmin ?? casa.valor ?? 0;
   return casa.valorAfiliado ?? casa.valor ?? 0;
-}
-
-function getCusto(casa, user) {
-  if (!casa) return 0;
-  if (user?.role === 'admin') return casa.custoAdmin ?? casa.custo ?? 0;
-  return casa.custoAfiliado ?? casa.custo ?? 0;
 }
 
 export default function Ranking({ casas, users }) {
@@ -51,15 +47,14 @@ export default function Ranking({ casas, users }) {
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
-      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, role: user.role, count: 0, faturamento: 0, lucro: 0 };
+      if (!map[cpa.uid]) map[cpa.uid] = { nome: user.nome, foto: user.foto || null, role: user.role, count: 0, faturamento: 0, custo: 0, lucro: 0 };
       const casa = casas.find(c => c.nome === cpa.casa);
       map[cpa.uid].count++;
-      if (casa) {
-        const valor = getValor(casa, user);
-        const custo = getCusto(casa, user);
-        map[cpa.uid].faturamento += valor;
-        map[cpa.uid].lucro += valor - custo;
-      }
+      const valorCPA = getValorCPA(cpa, casa, user.role);
+      const custo = Number(cpa.valorDeposito || 0);
+      map[cpa.uid].faturamento += valorCPA;
+      map[cpa.uid].custo += custo;
+      map[cpa.uid].lucro += valorCPA - custo;
     });
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [cpas, users, casas, filterCasa]);
@@ -128,7 +123,7 @@ export default function Ranking({ casas, users }) {
               <Avatar foto={aff.foto} nome={aff.nome} size={36} />
               <div className="rank-info">
                 <div className="rank-nome">{aff.nome}</div>
-                <div className="rank-sub">Fat: {fmt(aff.faturamento)} • Lucro: {fmt(aff.lucro)}</div>
+                <div className="rank-sub">Fat: {fmt(aff.faturamento)} • Dep: {fmt(aff.custo)} • Lucro: <span style={{color: aff.lucro < 0 ? 'var(--red)' : 'var(--green)'}}>{fmt(aff.lucro)}</span></div>
               </div>
               <div className="rank-num">{aff.count}<span> CPAs</span></div>
             </div>

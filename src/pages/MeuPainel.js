@@ -50,13 +50,17 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const [editImgs, setEditImgs] = useState([]); // URLs existentes + novos { file, preview }
   const [savingImgs, setSavingImgs] = useState(false);
   const [viewingImg, setViewingImg] = useState(null);
+  const [pagina, setPagina] = useState(20); // quantos CPAs mostrar
   const fileRef = useRef();
   const editFileRef = useRef();
 
-  const filteredCPAs = useMemo(() =>
-    filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa),
-    [cpas, filterCasa]
-  );
+  const filteredCPAs = useMemo(() => {
+    setPagina(20); // reseta paginação ao mudar filtro
+    return filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa);
+  }, [cpas, filterCasa]);
+
+  const cpasPaginados = filteredCPAs.slice(0, pagina);
+  const temMais = filteredCPAs.length > pagina;
 
   const stats = useMemo(() => {
     let faturamento = 0, custo = 0;
@@ -359,7 +363,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="empty"><div className="empty-icon">📭</div>Nenhum CPA neste período.</div>
       ) : (
         <div className="cpa-list">
-          {filteredCPAs.map(cpa => {
+          {cpasPaginados.map(cpa => {
             const casa = casas.find(c => c.nome === cpa.casa);
             const valorExibido = cpa.valorCPA != null ? Number(cpa.valorCPA) : getValorPorRole(casa, userProfile?.role);
             const imgs = getComprovantes(cpa);
@@ -437,6 +441,20 @@ export default function MeuPainel({ casas, metaDiaria }) {
             );
           })}
         </div>
+      )}
+      {/* Botão carregar mais */}
+      {temMais && (
+        <button
+          onClick={() => setPagina(p => p + 20)}
+          style={{
+            width: '100%', marginTop: 12, padding: '12px',
+            background: 'var(--card)', border: '1.5px solid var(--border)',
+            borderRadius: 10, color: 'var(--text)', cursor: 'pointer',
+            fontSize: 14, fontWeight: 600
+          }}
+        >
+          Carregar mais ({filteredCPAs.length - pagina} restantes)
+        </button>
       )}
     </div>
   );
