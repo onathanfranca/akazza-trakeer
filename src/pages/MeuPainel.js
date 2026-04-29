@@ -63,12 +63,15 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const temMais = filteredCPAs.length > pagina;
 
   const stats = useMemo(() => {
-    let faturamento = 0, custo = 0;
+    let faturamento = 0, custo = 0, totalAprovados = 0;
     cpas.forEach(c => {
+      // Só conta aprovados (ou sem status = legado)
+      if (c.status === 'pendente' || c.status === 'rejeitado') return;
+      totalAprovados++;
       faturamento += c.valorCPA != null ? Number(c.valorCPA) : getValorPorRole(casas.find(x => x.nome === c.casa), userProfile?.role);
       custo += Number(c.valorDeposito || 0);
     });
-    return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
+    return { total: totalAprovados, totalTodos: cpas.length, faturamento, custo, lucro: faturamento - custo };
   }, [cpas, casas]);
 
   const pct = Math.min((stats.total / (metaDiaria || 50)) * 100, 100);
@@ -380,7 +383,14 @@ export default function MeuPainel({ casas, metaDiaria }) {
                     </div>
                   )}
                   <div className="cpa-info">
-                    <div className="cpa-nome">{cpa.player || 'Sem depositante'}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div className="cpa-nome">{cpa.player || 'Sem depositante'}</div>
+                      {cpa.status === 'pendente' && <span style={{ fontSize: 10, background: '#f59e0b', color: '#000', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>⏳ Pendente</span>}
+                      {cpa.status === 'rejeitado' && <span style={{ fontSize: 10, background: 'var(--red)', color: '#fff', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>❌ Rejeitado</span>}
+                    </div>
+                    {cpa.status === 'rejeitado' && cpa.motivoRejeicao && (
+                      <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>Motivo: {cpa.motivoRejeicao}</div>
+                    )}
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>

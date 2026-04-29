@@ -3,13 +3,12 @@ import { useEffect, useState, useRef } from 'react';
 import {
   collection, query, where, orderBy,
   onSnapshot, addDoc, deleteDoc, updateDoc,
-  doc, serverTimestamp, Timestamp
+  doc, serverTimestamp, Timestamp, getDoc
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
-// Comprime imagem antes de fazer upload
 function compressImage(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -31,12 +30,8 @@ function compressImage(file) {
   });
 }
 
-// Faz upload de uma imagem (base64 ou File) para o Storage
 async function uploadImagem(uid, cpaId, imagem, index) {
-  // Se já for uma URL do Storage, retorna ela mesma
   if (typeof imagem === 'string' && imagem.startsWith('https://')) return imagem;
-
-  // Converte base64 para Blob se necessário
   let blob;
   if (typeof imagem === 'string' && imagem.startsWith('data:')) {
     const res = await fetch(imagem);
@@ -46,10 +41,21 @@ async function uploadImagem(uid, cpaId, imagem, index) {
   } else {
     blob = imagem;
   }
-
   const storageRef = ref(storage, `comprovantes/${uid}/${cpaId}_${index}_${Date.now()}.jpg`);
   await uploadBytes(storageRef, blob);
   return getDownloadURL(storageRef);
+}
+
+// Busca se aprovação automática está ativa
+async function getAprovacaoAutomatica() {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'geral'));
+    if (snap.exists()) {
+      const data = snap.data();
+      return data.aprovacaoAutomatica !== false; // default true
+    }
+  } catch {}
+  return true;
 }
 
 export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
@@ -76,7 +82,6 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
 
     const unsub = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
       if (isFirstLoad.current) {
         docs.forEach(d => knownIds.current.add(d.id));
         isFirstLoad.current = false;
@@ -89,7 +94,6 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
           }
         });
       }
-
       setCPAs(docs);
       setLoading(false);
     });
@@ -98,7 +102,10 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
   }, [uid, dateFrom, dateTo]);
 
   async function addCPA(casa, player = '', imagensBase64 = [], valorCPA = 0, valorDeposito = 0) {
-    // Cria o documento primeiro para ter o ID
+    // Verifica se aprovação automática está ativa
+    const autoAprovado = await getAprovacaoAutomatica();
+    const status = autoAprovado ? 'aprovado' : 'pendente';
+
     const docRef = await addDoc(collection(db, 'cpas'), {
       uid,
       casa,
@@ -106,10 +113,10 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
       valorCPA: Number(valorCPA),
       valorDeposito: Number(valorDeposito),
       comprovantes: [],
+      status,
       createdAt: serverTimestamp(),
     });
 
-    // Faz upload das imagens para o Storage usando o ID do doc
     if (imagensBase64 && imagensBase64.length > 0) {
       const urls = await Promise.all(
         imagensBase64.map((img, i) => uploadImagem(uid, docRef.id, img, i))
@@ -125,7 +132,6 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
   }
 
   async function editCPA(id, data) {
-    // Se vier novas imagens (base64), faz upload delas
     if (data.comprovantes && data.comprovantes.length > 0) {
       const urls = await Promise.all(
         data.comprovantes.map((img, i) => uploadImagem(uid, id, img, i))
@@ -135,5 +141,13 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
     return updateDoc(doc(db, 'cpas', id), data);
   }
 
-  return { cpas, loading, addCPA, removeCPA, editCPA };
+  async function aprovarCPA(id) {
+    return updateDoc(doc(db, 'cpas', id), { status: 'aprovado', motivoRejeicao: null });
+  }
+
+  async function rejeitarCPA(id, motivo) {
+    return updateDoc(doc(db, 'cpas', id), { status: 'rejeitado', motivoRejeicao: motivo });
+  }
+
+  return { cpas, loading, addCPA, removeCPA, editCPA, aprovarCPA, rejeitarCPA };
 }

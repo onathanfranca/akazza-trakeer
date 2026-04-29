@@ -116,6 +116,7 @@ function AppInner() {
             users={users}
             metaDiaria={config.metaDiaria}
             onNewCPA={handleAdminNewCPA}
+            config={config}
           />
         )}
         {tab === 'ranking' && (
