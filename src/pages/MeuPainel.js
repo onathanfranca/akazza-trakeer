@@ -4,6 +4,7 @@ import { format, subDays } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { useCPAs } from '../hooks/useCPAs';
 import { useToast } from '../context/ToastContext';
+import { ComprovanteThumbnail, ComprovanteThumbnailGrande, ComprovanteViewer, normalizar, getComprovantesNormalizados } from '../components/Comprovantes';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
@@ -49,7 +50,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const [editCasaVal, setEditCasaVal] = useState('');
   const [editImgs, setEditImgs] = useState([]); // URLs existentes + novos { file, preview }
   const [savingImgs, setSavingImgs] = useState(false);
-  const [viewingImg, setViewingImg] = useState(null);
+  const [viewingItem, setViewingItem] = useState(null);
   const [pagina, setPagina] = useState(20); // quantos CPAs mostrar
   const fileRef = useRef();
   const editFileRef = useRef();
@@ -121,11 +122,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
     catch { showToast('Erro ao remover.', 'red'); }
   }
 
-  function getComprovantes(cpa) {
-    if (cpa.comprovantes?.length > 0) return cpa.comprovantes;
-    if (cpa.comprovante) return [cpa.comprovante];
-    return [];
-  }
+  const getComprovantes = getComprovantesNormalizados;
 
   function startEdit(cpa) {
     setEditingId(cpa.id);
@@ -180,21 +177,9 @@ export default function MeuPainel({ casas, metaDiaria }) {
     return format(d, 'HH:mm');
   }
 
-  // Preview de imagem — pode ser URL do Storage ou { preview }
-  function getImgSrc(img) {
-    if (typeof img === 'string') return img;
-    return img.preview;
-  }
-
   return (
     <div className="fade-in">
-      {/* Lightbox */}
-      {viewingImg && (
-        <div onClick={() => setViewingImg(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <img src={typeof viewingImg === 'string' ? viewingImg : viewingImg.preview} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
-          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#000', fontSize: 18, cursor: 'pointer' }}>✕</button>
-        </div>
-      )}
+      {viewingItem && <ComprovanteViewer item={viewingItem} onClose={() => setViewingItem(null)} />}
 
       {/* Período rápido */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -309,7 +294,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               {imagens.map((img, idx) => (
                 <div key={idx} style={{ position: 'relative' }}>
-                  <img src={img.preview} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
+                  <img src={img.preview} alt={`comp ${idx+1}`} onClick={() => setViewingItem(img)}
                     style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
                   <button onClick={() => removeImagem(idx)} style={{ position: 'absolute', top: -6, right: -6, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#000', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
                 </div>
@@ -324,7 +309,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
               color: imagens.length === 0 ? 'var(--accent)' : 'var(--text-muted)', fontSize: 13
             }}>
               📎 {imagens.length === 0 ? 'Anexar comprovante Pix *' : `Adicionar mais (${imagens.length}/4)`}
-              <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+              <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }} onChange={handleFileChange} />
             </label>
           ) : (
             <span style={{ fontSize: 12, color: 'var(--green)' }}>✅ Máximo de 4 comprovantes</span>
@@ -377,7 +362,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                   {!isEditing && imgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                       {imgs.map((img, idx) => (
-                        <img key={idx} src={img} alt="comp" onClick={() => setViewingImg(img)}
+                        <img key={idx} src={img} alt="comp" onClick={() => setViewingItem(img)}
                           style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1.5px solid var(--accent)' }} />
                       ))}
                     </div>
@@ -426,7 +411,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
                         {editImgs.map((img, idx) => (
                           <div key={idx} style={{ position: 'relative' }}>
-                            <img src={getImgSrc(img)} alt={`comp ${idx+1}`} onClick={() => setViewingImg(img)}
+                            <img src={getImgSrc(img)} alt={`comp ${idx+1}`} onClick={() => setViewingItem(img)}
                               style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
                             <button onClick={() => removeEditImg(idx)} style={{ position: 'absolute', top: -6, right: -6, background: '#e53', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
                           </div>
@@ -434,7 +419,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                         {editImgs.length < 4 && (
                           <label style={{ width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22 }}>
                             +
-                            <input ref={editFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleEditFileChange} />
+                            <input ref={editFileRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }} onChange={handleEditFileChange} />
                           </label>
                         )}
                       </div>

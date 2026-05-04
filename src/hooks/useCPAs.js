@@ -30,20 +30,35 @@ function compressImage(file) {
   });
 }
 
-async function uploadImagem(uid, cpaId, imagem, index) {
-  if (typeof imagem === 'string' && imagem.startsWith('https://')) return imagem;
+async function uploadArquivo(uid, cpaId, arquivo, index) {
+  // URL existente — retorna direto
+  if (typeof arquivo === 'string' && arquivo.startsWith('https://')) return arquivo;
+
   let blob;
-  if (typeof imagem === 'string' && imagem.startsWith('data:')) {
-    const res = await fetch(imagem);
+  let extensao = 'jpg';
+  let tipo = 'image/jpeg';
+
+  if (arquivo instanceof File) {
+    if (arquivo.type === 'application/pdf') {
+      blob = arquivo;
+      extensao = 'pdf';
+      tipo = 'application/pdf';
+    } else {
+      blob = await compressImage(arquivo);
+    }
+  } else if (typeof arquivo === 'string' && arquivo.startsWith('data:')) {
+    const res = await fetch(arquivo);
     blob = await res.blob();
-  } else if (imagem instanceof File) {
-    blob = await compressImage(imagem);
+    if (arquivo.startsWith('data:application/pdf')) { extensao = 'pdf'; tipo = 'application/pdf'; }
   } else {
-    blob = imagem;
+    blob = arquivo;
   }
-  const storageRef = ref(storage, `comprovantes/${uid}/${cpaId}_${index}_${Date.now()}.jpg`);
-  await uploadBytes(storageRef, blob);
-  return getDownloadURL(storageRef);
+
+  const storageRef = ref(storage, `comprovantes/${uid}/${cpaId}_${index}_${Date.now()}.${extensao}`);
+  await uploadBytes(storageRef, blob, { contentType: tipo });
+  const url = await getDownloadURL(storageRef);
+  // Salva metadado do tipo junto com a URL
+  return { url, tipo: extensao === 'pdf' ? 'pdf' : 'imagem' };
 }
 
 // Busca se aprovação automática está ativa
@@ -118,10 +133,10 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
     });
 
     if (imagensBase64 && imagensBase64.length > 0) {
-      const urls = await Promise.all(
-        imagensBase64.map((img, i) => uploadImagem(uid, docRef.id, img, i))
+      const resultados = await Promise.all(
+        imagensBase64.map((img, i) => uploadArquivo(uid, docRef.id, img, i))
       );
-      await updateDoc(docRef, { comprovantes: urls });
+      await updateDoc(docRef, { comprovantes: resultados });
     }
 
     return docRef;
@@ -133,10 +148,14 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
 
   async function editCPA(id, data) {
     if (data.comprovantes && data.comprovantes.length > 0) {
-      const urls = await Promise.all(
-        data.comprovantes.map((img, i) => uploadImagem(uid, id, img, i))
+      const resultados = await Promise.all(
+        data.comprovantes.map((item, i) => {
+          // Se já for objeto {url, tipo} salvo, retorna direto
+          if (item && typeof item === 'object' && item.url) return Promise.resolve(item);
+          return uploadArquivo(uid, id, item, i);
+        })
       );
-      data = { ...data, comprovantes: urls };
+      data = { ...data, comprovantes: resultados };
     }
     return updateDoc(doc(db, 'cpas', id), data);
   }

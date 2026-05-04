@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { format, startOfDay, endOfDay, parseISO, subDays } from 'date-fns';
+import { ComprovanteThumbnail, ComprovanteViewer, getComprovantesNormalizados } from '../components/Comprovantes';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
@@ -26,7 +27,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
   const [dateFrom, setDateFrom] = useState(daysAgo(30));
   const [dateTo, setDateTo] = useState(today());
   const [filterCasa, setFilterCasa] = useState('Todas');
-  const [viewingImg, setViewingImg] = useState(null);
+  const [viewingItem, setViewingItem] = useState(null);
 
   const userRole = user.role || 'afiliado';
 
@@ -63,20 +64,11 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
     return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
   }, [cpas, casas, userRole]);
 
-  function getComprovantes(cpa) {
-    if (cpa.comprovantes?.length > 0) return cpa.comprovantes;
-    if (cpa.comprovante) return [cpa.comprovante];
-    return [];
-  }
+  const getComprovantes = getComprovantesNormalizados;
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '16px', overflowY: 'auto' }}>
-      {viewingImg && (
-        <div onClick={() => setViewingImg(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <img src={viewingImg} alt="comprovante" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }} />
-          <button onClick={() => setViewingImg(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--accent)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 18, cursor: 'pointer' }}>✕</button>
-        </div>
-      )}
+      {viewingItem && <ComprovanteViewer item={viewingItem} onClose={() => setViewingItem(null)} />}
 
       <div style={{ background: 'var(--bg)', borderRadius: 16, width: '100%', maxWidth: 680, padding: 24, marginTop: 16, border: '1px solid var(--border)' }}>
         {/* Header */}
@@ -139,8 +131,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
                   {imgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                       {imgs.map((img, idx) => (
-                        <img key={idx} src={img} alt="comprovante" onClick={() => setViewingImg(img)}
-                          style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1.5px solid var(--accent)' }} />
+                        <ComprovanteThumbnail key={idx} item={img} idx={idx} onClick={setViewingItem} size={38} />
                       ))}
                     </div>
                   )}

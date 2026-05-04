@@ -4,6 +4,7 @@ import { format, subDays } from 'date-fns';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAllCPAs } from '../hooks/useAllCPAs';
+import { ComprovanteThumbnail, ComprovanteViewer, getComprovantesNormalizados } from '../components/Comprovantes';
 import { useEffect } from 'react';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
@@ -43,6 +44,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
   const [rejeitandoId, setRejeitandoId] = useState(null);
   const [motivo, setMotivo] = useState('');
   const [processando, setProcessando] = useState('');
+  const [viewingItem, setViewingItem] = useState(null);
 
   const aprovacaoAuto = config?.aprovacaoAutomatica !== false;
   const pendentes = usePendentes();
@@ -93,6 +95,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
 
   return (
     <div className="fade-in">
+      {viewingItem && <ComprovanteViewer item={viewingItem} onClose={() => setViewingItem(null)} />}
 
       {/* Fila de pendentes — só aparece se aprovação manual e tiver pendentes */}
       {!aprovacaoAuto && pendentes.length > 0 && (
@@ -124,15 +127,13 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
                   </div>
 
                   {/* Comprovantes */}
-                  {cpa.comprovantes?.length > 0 && (
+                  {(() => { const imgs = getComprovantesNormalizados(cpa); return imgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                      {cpa.comprovantes.map((img, idx) => (
-                        <img key={idx} src={img} alt="comp"
-                          onClick={() => window.open(img, '_blank')}
-                          style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1.5px solid var(--accent)' }} />
+                      {imgs.map((img, idx) => (
+                        <ComprovanteThumbnail key={idx} item={img} idx={idx} onClick={setViewingItem} size={44} />
                       ))}
                     </div>
-                  )}
+                  ); })()}
 
                   {/* Botões */}
                   {rejeitandoId === cpa.id ? (
