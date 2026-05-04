@@ -25,9 +25,28 @@ async function downloadArquivo(url, tipo) {
   try {
     const res = await fetch(url);
     const blob = await res.blob();
+    const filename = `comprovante.${tipo === 'pdf' ? 'pdf' : 'jpg'}`;
+    const mimeType = tipo === 'pdf' ? 'application/pdf' : 'image/jpeg';
+
+    // Tenta Web Share API primeiro (celular — vai para galeria no Android)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && navigator.share && tipo !== 'pdf') {
+      try {
+        const file = new File([blob], filename, { type: mimeType });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Comprovante' });
+          return;
+        }
+      } catch (shareErr) {
+        // Se o usuário cancelar ou Share não suportar, cai no download normal
+        if (shareErr.name !== 'AbortError') console.warn('Share falhou:', shareErr);
+      }
+    }
+
+    // Download normal (desktop ou PDF)
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `comprovante.${tipo === 'pdf' ? 'pdf' : 'jpg'}`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(a.href);
   } catch { window.open(url, '_blank'); }
