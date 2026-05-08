@@ -1,5 +1,5 @@
 // src/pages/AfiliadoPerfil.js
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { format, startOfDay, endOfDay, parseISO, subDays } from 'date-fns';
@@ -50,9 +50,14 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
   useEffect(() => { fetchCpas(); }, []);
 
   const filtered = useMemo(() => {
-    setPagina && setPagina(20);
+    setPagina(20);
     return filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa);
   }, [cpas, filterCasa]);
+
+  const cpasPaginados = filtered.slice(0, pagina);
+  const temMais = filtered.length > pagina;
+
+  const [pagina, setPagina] = useState(20);
 
   const stats = useMemo(() => {
     let faturamento = 0, custo = 0, totalAprovados = 0;
@@ -65,11 +70,6 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
     });
     return { total: totalAprovados, totalTodos: cpas.length, faturamento, custo, lucro: faturamento - custo };
   }, [cpas, casas, userRole]);
-
-  // Paginação
-  const [pagina, setPagina] = useState(20);
-  const cpasPaginados = filtered.slice(0, pagina);
-  const temMais = filtered.length > pagina;
 
   const getComprovantes = getComprovantesNormalizados;
 
