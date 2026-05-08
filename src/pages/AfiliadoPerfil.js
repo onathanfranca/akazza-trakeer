@@ -28,6 +28,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
   const [dateTo, setDateTo] = useState(today());
   const [filterCasa, setFilterCasa] = useState('Todas');
   const [viewingItem, setViewingItem] = useState(null);
+  const [pagina, setPagina] = useState(20);
 
   const userRole = user.role || 'afiliado';
 
@@ -56,8 +57,6 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
 
   const cpasPaginados = filtered.slice(0, pagina);
   const temMais = filtered.length > pagina;
-
-  const [pagina, setPagina] = useState(20);
 
   const stats = useMemo(() => {
     let faturamento = 0, custo = 0, totalAprovados = 0;
@@ -128,57 +127,59 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
         ) : filtered.length === 0 ? (
           <div className="empty"><div className="empty-icon">📭</div>Nenhum CPA neste período.</div>
         ) : (
-          <div className="cpa-list">
-            {cpasPaginados.map(cpa => {
-              const casa = casas.find(c => c.nome === cpa.casa);
-              const valorExibido = getValorCPA(cpa, casa, userRole);
-              const imgs = getComprovantes(cpa);
-              return (
-                <div key={cpa.id} className="cpa-item">
-                  {imgs.length > 0 && (
-                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                      {imgs.map((img, idx) => (
-                        <ComprovanteThumbnail key={idx} item={img} idx={idx} onClick={setViewingItem} size={38} />
-                      ))}
-                    </div>
-                  )}
-                  <div className="cpa-info">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <div className="cpa-nome">{cpa.player || 'Sem depositante'}</div>
-                      {cpa.status === 'pendente' && <span style={{ fontSize: 10, background: '#f59e0b', color: '#000', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>⏳ Pendente</span>}
-                      {cpa.status === 'rejeitado' && <span style={{ fontSize: 10, background: 'var(--red)', color: '#fff', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>❌ Rejeitado</span>}
-                    </div>
-                    {cpa.status === 'rejeitado' && cpa.motivoRejeicao && (
-                      <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>Motivo: {cpa.motivoRejeicao}</div>
+          <>
+            <div className="cpa-list">
+              {cpasPaginados.map(cpa => {
+                const casa = casas.find(c => c.nome === cpa.casa);
+                const valorExibido = getValorCPA(cpa, casa, userRole);
+                const imgs = getComprovantes(cpa);
+                return (
+                  <div key={cpa.id} className="cpa-item">
+                    {imgs.length > 0 && (
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        {imgs.map((img, idx) => (
+                          <ComprovanteThumbnail key={idx} item={img} idx={idx} onClick={setViewingItem} size={38} />
+                        ))}
+                      </div>
                     )}
-                    <div className="cpa-meta">
-                      <span>{formatTime(cpa.createdAt)}</span>
-                      <span className="casa-tag">{cpa.casa}</span>
-                      {cpa.valorDeposito > 0 && (
-                        <span style={{ color: 'var(--muted)', fontSize: 11 }}>Dep: R$ {Number(cpa.valorDeposito).toLocaleString('pt-BR')}</span>
+                    <div className="cpa-info">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <div className="cpa-nome">{cpa.player || 'Sem depositante'}</div>
+                        {cpa.status === 'pendente' && <span style={{ fontSize: 10, background: '#f59e0b', color: '#000', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>⏳ Pendente</span>}
+                        {cpa.status === 'rejeitado' && <span style={{ fontSize: 10, background: 'var(--red)', color: '#fff', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>❌ Rejeitado</span>}
+                      </div>
+                      {cpa.status === 'rejeitado' && cpa.motivoRejeicao && (
+                        <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>Motivo: {cpa.motivoRejeicao}</div>
                       )}
-                      {imgs.length > 0 && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 {imgs.length}</span>}
+                      <div className="cpa-meta">
+                        <span>{formatTime(cpa.createdAt)}</span>
+                        <span className="casa-tag">{cpa.casa}</span>
+                        {cpa.valorDeposito > 0 && (
+                          <span style={{ color: 'var(--muted)', fontSize: 11 }}>Dep: R$ {Number(cpa.valorDeposito).toLocaleString('pt-BR')}</span>
+                        )}
+                        {imgs.length > 0 && <span style={{ color: 'var(--green)', fontSize: 11 }}>📎 {imgs.length}</span>}
+                      </div>
+                    </div>
+                    <div className="cpa-actions">
+                      <span className="cpa-valor" style={{ color: 'var(--accent)' }}>
+                        {fmtVal(valorExibido)}
+                      </span>
                     </div>
                   </div>
-                  <div className="cpa-actions">
-                    <span className="cpa-valor" style={{ color: valorExibido < 0 ? 'var(--accent)' : 'var(--accent)' }}>
-                      {fmtVal(valorExibido)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {temMais && (
-            <button onClick={() => setPagina(p => p + 20)} style={{
-              width: '100%', marginTop: 12, padding: '12px',
-              background: 'var(--card)', border: '1.5px solid var(--border)',
-              borderRadius: 10, color: 'var(--text)', cursor: 'pointer',
-              fontSize: 14, fontWeight: 600
-            }}>
-              Carregar mais ({filtered.length - pagina} restantes)
-            </button>
-          )}
+                );
+              })}
+            </div>
+            {temMais && (
+              <button onClick={() => setPagina(p => p + 20)} style={{
+                width: '100%', marginTop: 12, padding: '12px',
+                background: 'var(--card)', border: '1.5px solid var(--border)',
+                borderRadius: 10, color: 'var(--text)', cursor: 'pointer',
+                fontSize: 14, fontWeight: 600
+              }}>
+                Carregar mais ({filtered.length - pagina} restantes)
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
