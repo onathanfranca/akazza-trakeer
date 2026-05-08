@@ -35,7 +35,6 @@ function dispararPushcut(webhookUrl, title, text) {
   });
 }
 
-// ─── Helper: formata valor em BRL ────────────────────────────────────────────
 function fmtBRL(n) {
   return `R$ ${Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 }
@@ -49,6 +48,7 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
   const messaging = getMessaging();
   const uid = cpa.uid;
   const casaNome = cpa.casa || "";
+  const status = cpa.status || "pendente";
 
   // Busca dono do CPA
   const ownerSnap = await db.collection("users").doc(uid).get();
@@ -69,44 +69,82 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
   const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   const admins = users.filter(u => u.role === "admin");
 
-  // ── FCM: mesma lógica anterior ──
-  const valorFCM = casaData
-    ? (ownerRole === "admin" ? (casaData.valorAdmin ?? casaData.valor ?? 0) : (casaData.valorAfiliado ?? casaData.valor ?? 0))
-    : 0;
-  const valorFmtFCM = valorFCM > 0 ? `+${fmtBRL(valorFCM)}` : "+1 CPA";
-  const mensagensFCM = [];
-  for (const user of users) {
-    if (!user.fcmToken) continue;
-    const isAdmin = user.role === "admin";
-    const isOwner = user.id === uid;
-    if (ownerRole === "admin" && !isAdmin) continue;
-    if (ownerRole !== "admin" && !isOwner && !isAdmin) continue;
-    mensagensFCM.push(buildMsg(user.fcmToken, "Novo CPA 💰", valorFmtFCM));
-  }
-  await enviarMensagens(messaging, db, mensagensFCM, users);
-
-  // ── PUSHCUT para admins: "NOME REGISTROU CPA — +R$50,00 pra conta!" ──
-  // Margem admin = valorAdmin - valorAfiliado
   const valorAdmin = casaData ? (casaData.valorAdmin ?? casaData.valor ?? 0) : 0;
+  const custoAdmin = casaData ? (casaData.custoAdmin ?? casaData.custo ?? 0) : 0;
   const valorAfiliado = casaData ? (casaData.valorAfiliado ?? casaData.valor ?? 0) : 0;
-  const margemAdmin = valorAdmin - valorAfiliado;
+  const valorDeposito = Number(cpa.valorDeposito || 0);
   const nomeAfiliado = (owner.nome || "Afiliado").toUpperCase();
 
-  const pushcutTitleAdmin = `${nomeAfiliado} REGISTROU CPA`;
-  const pushcutTextAdmin = margemAdmin > 0
-    ? `+${fmtBRL(margemAdmin)} pra conta! 💰`
-    : `Casa: ${casaNome || "—"}`;
-
   const pushcutPromises = [];
+
+  // ── CASO 1: Admin registra CPA próprio — sempre aprovado, notifica na hora ──
+  if (ownerRole === "admin") {
+    const liquidoAdmin = valorAdmin - custoAdmin;
+    const titleDono = "+1 CPA REGISTRADO";
+    const textDono = liquidoAdmin > 0 ? `+${fmtBRL(liquidoAdmin)} pra conta!` : `Casa: ${casaNome || "—"}`;
+
+    if (owner.fcmToken) {
+      await enviarMensagens(messaging, db, [buildMsg(owner.fcmToken, titleDono, textDono)], [{ id: uid, ...owner }]);
+    }
+    if (owner.pushcutUrl) {
+      pushcutPromises.push(dispararPushcut(owner.pushcutUrl, titleDono, textDono));
+    }
+    await Promise.all(pushcutPromises);
+    return;
+  }
+
+  // ── CASO 2: Afiliado — aprovação automática (status já aprovado no registro) ──
+  if (status === "aprovado") {
+    const valorCPA = cpa.valorCPA != null ? Number(cpa.valorCPA) : valorAfiliado;
+    const liquidoDono = valorCPA - valorDeposito;
+    const margemAdmin = valorAdmin - valorAfiliado;
+
+    // Notifica afiliado
+    const titleDono = "+1 CPA REGISTRADO";
+    const textDono = liquidoDono > 0 ? `+${fmtBRL(liquidoDono)} na conta!` : `Casa: ${casaNome || "—"}`;
+
+    if (owner.fcmToken) {
+      await enviarMensagens(messaging, db, [buildMsg(owner.fcmToken, titleDono, textDono)], [{ id: uid, ...owner }]);
+    }
+    if (owner.pushcutUrl) {
+      pushcutPromises.push(dispararPushcut(owner.pushcutUrl, titleDono, textDono));
+    }
+
+    // Notifica admins
+    const titleAdmin = `${nomeAfiliado} REGISTROU CPA`;
+    const textAdmin = margemAdmin > 0 ? `+${fmtBRL(margemAdmin)} pra conta!` : `Casa: ${casaNome || "—"}`;
+
+    const fcmAdmins = admins.filter(a => a.fcmToken && a.id !== uid);
+    if (fcmAdmins.length > 0) {
+      await enviarMensagens(messaging, db, fcmAdmins.map(a => buildMsg(a.fcmToken, titleAdmin, textAdmin)), fcmAdmins);
+    }
+    for (const admin of admins) {
+      if (admin.pushcutUrl) {
+        pushcutPromises.push(dispararPushcut(admin.pushcutUrl, titleAdmin, textAdmin));
+      }
+    }
+
+    await Promise.all(pushcutPromises);
+    return;
+  }
+
+  // ── CASO 3: Afiliado — aprovação manual (status pendente) — só avisa admins ──
+  const titleAdminPendente = `${nomeAfiliado} REGISTROU CPA`;
+  const textAdminPendente = `⏳ Aguardando aprovação — Casa: ${casaNome || "—"}`;
+
+  const fcmAdminsPendente = admins.filter(a => a.fcmToken && a.id !== uid);
+  if (fcmAdminsPendente.length > 0) {
+    await enviarMensagens(messaging, db, fcmAdminsPendente.map(a => buildMsg(a.fcmToken, titleAdminPendente, textAdminPendente)), fcmAdminsPendente);
+  }
   for (const admin of admins) {
     if (admin.pushcutUrl) {
-      pushcutPromises.push(dispararPushcut(admin.pushcutUrl, pushcutTitleAdmin, pushcutTextAdmin));
+      pushcutPromises.push(dispararPushcut(admin.pushcutUrl, titleAdminPendente, textAdminPendente));
     }
   }
   await Promise.all(pushcutPromises);
 });
 
-// ─── Notifica mudança de status do CPA (aprovação/rejeição) ──────────────────
+// ─── Notifica mudança de status (aprovação/rejeição MANUAL) ──────────────────
 exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => {
   const antes = event.data.before.data();
   const depois = event.data.after.data();
@@ -116,18 +154,19 @@ exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => 
   const novoStatus = depois.status;
   if (novoStatus !== "aprovado" && novoStatus !== "rejeitado") return;
 
+  // Só dispara se veio de pendente (aprovação manual)
+  if (antes.status !== "pendente") return;
+
   const db = getFirestore();
   const messaging = getMessaging();
   const uid = depois.uid;
   const casaNome = depois.casa || "";
 
-  // Busca dono do CPA
   const userSnap = await db.collection("users").doc(uid).get();
   const user = userSnap.data();
   if (!user) return;
   const userRole = user.role || "afiliado";
 
-  // Busca casa
   let casaData = null;
   if (casaNome) {
     const casaId = casaNome.toLowerCase().replace(/[\s/\\]+/g, "_");
@@ -135,69 +174,69 @@ exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => 
     if (casaSnap.exists) casaData = casaSnap.data();
   }
 
-  // Busca admins
   const usersSnap = await db.collection("users").get();
   const admins = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === "admin");
 
-  // ── Calcula valores ──
-  // Valor líquido do dono: valorCPA - valorDeposito
-  const valorCPA = depois.valorCPA != null
-    ? Number(depois.valorCPA)
-    : (casaData ? (userRole === "admin" ? (casaData.valorAdmin ?? casaData.valor ?? 0) : (casaData.valorAfiliado ?? casaData.valor ?? 0)) : 0);
-  const valorDeposito = Number(depois.valorDeposito || 0);
-  const liquidoDono = valorCPA - valorDeposito;
-
-  // Valor líquido admin: valorAdmin - custoAdmin
   const valorAdmin = casaData ? (casaData.valorAdmin ?? casaData.valor ?? 0) : 0;
   const custoAdmin = casaData ? (casaData.custoAdmin ?? casaData.custo ?? 0) : 0;
-  const liquidoAdmin = valorAdmin - custoAdmin;
-
+  const valorAfiliado = casaData ? (casaData.valorAfiliado ?? casaData.valor ?? 0) : 0;
+  const valorCPA = depois.valorCPA != null ? Number(depois.valorCPA) : (userRole === "admin" ? valorAdmin : valorAfiliado);
+  const valorDeposito = Number(depois.valorDeposito || 0);
   const nomeAfiliado = (user.nome || "Afiliado").toUpperCase();
 
-  let titleDono, textDono, titleAdmin, textAdmin;
+  const pushcutPromises = [];
 
   if (novoStatus === "aprovado") {
-    titleDono = "+1 CPA APROVADO! ✅";
-    textDono = liquidoDono > 0
-      ? `+${fmtBRL(liquidoDono)} na conta! 💰`
-      : `Casa: ${casaNome || "—"}`;
+    const liquidoDono = valorCPA - valorDeposito;
+    const margemAdmin = valorAdmin - valorAfiliado;
 
-    titleAdmin = "+1 CPA APROVADO! ✅";
-    textAdmin = liquidoAdmin > 0
-      ? `${nomeAfiliado} • +${fmtBRL(liquidoAdmin)} na conta! 💰`
-      : `${nomeAfiliado} • Casa: ${casaNome || "—"}`;
+    const titleDono = "+1 CPA REGISTRADO";
+    const textDono = liquidoDono > 0 ? `+${fmtBRL(liquidoDono)} na conta!` : `Casa: ${casaNome || "—"}`;
+    const titleAdmin = `${nomeAfiliado} REGISTROU CPA`;
+    const textAdmin = margemAdmin > 0 ? `+${fmtBRL(margemAdmin)} pra conta!` : `Casa: ${casaNome || "—"}`;
+
+    if (user.fcmToken) {
+      await enviarMensagens(messaging, db, [buildMsg(user.fcmToken, titleDono, textDono)], [{ id: uid, ...user }]);
+    }
+    if (user.pushcutUrl) {
+      pushcutPromises.push(dispararPushcut(user.pushcutUrl, titleDono, textDono));
+    }
+
+    const fcmAdmins = admins.filter(a => a.fcmToken && a.id !== uid);
+    if (fcmAdmins.length > 0) {
+      await enviarMensagens(messaging, db, fcmAdmins.map(a => buildMsg(a.fcmToken, titleAdmin, textAdmin)), fcmAdmins);
+    }
+    for (const admin of admins) {
+      if (admin.pushcutUrl) {
+        pushcutPromises.push(dispararPushcut(admin.pushcutUrl, titleAdmin, textAdmin));
+      }
+    }
+
   } else {
     const motivo = depois.motivoRejeicao ? ` — ${depois.motivoRejeicao}` : "";
-    titleDono = "CPA REJEITADO ❌";
-    textDono = `Casa: ${casaNome || "—"}${motivo}`;
+    const titleDono = "CPA REJEITADO ❌";
+    const textDono = `Casa: ${casaNome || "—"}${motivo}`;
+    const titleAdmin = "CPA REJEITADO ❌";
+    const textAdmin = `${nomeAfiliado} • Casa: ${casaNome || "—"}${motivo}`;
 
-    titleAdmin = "CPA REJEITADO ❌";
-    textAdmin = `${nomeAfiliado} • Casa: ${casaNome || "—"}${motivo}`;
-  }
+    if (user.fcmToken) {
+      await enviarMensagens(messaging, db, [buildMsg(user.fcmToken, titleDono, textDono)], [{ id: uid, ...user }]);
+    }
+    if (user.pushcutUrl) {
+      pushcutPromises.push(dispararPushcut(user.pushcutUrl, titleDono, textDono));
+    }
 
-  // ── FCM para o dono ──
-  if (user.fcmToken) {
-    await enviarMensagens(messaging, db, [buildMsg(user.fcmToken, titleDono, textDono)], [{ id: uid, ...user }]);
-  }
-
-  // ── FCM para admins ──
-  const fcmAdmins = admins.filter(a => a.fcmToken && a.id !== uid);
-  if (fcmAdmins.length > 0) {
-    await enviarMensagens(messaging, db, fcmAdmins.map(a => buildMsg(a.fcmToken, titleAdmin, textAdmin)), fcmAdmins);
-  }
-
-  // ── Pushcut para o dono ──
-  if (user.pushcutUrl) {
-    await dispararPushcut(user.pushcutUrl, titleDono, textDono);
-  }
-
-  // ── Pushcut para admins ──
-  const pushcutPromises = [];
-  for (const admin of admins) {
-    if (admin.pushcutUrl) {
-      pushcutPromises.push(dispararPushcut(admin.pushcutUrl, titleAdmin, textAdmin));
+    const fcmAdmins = admins.filter(a => a.fcmToken && a.id !== uid);
+    if (fcmAdmins.length > 0) {
+      await enviarMensagens(messaging, db, fcmAdmins.map(a => buildMsg(a.fcmToken, titleAdmin, textAdmin)), fcmAdmins);
+    }
+    for (const admin of admins) {
+      if (admin.pushcutUrl) {
+        pushcutPromises.push(dispararPushcut(admin.pushcutUrl, titleAdmin, textAdmin));
+      }
     }
   }
+
   await Promise.all(pushcutPromises);
 });
 
@@ -227,7 +266,10 @@ async function enviarMensagens(messaging, db, mensagens, users) {
   results.responses.forEach(async (resp, idx) => {
     if (!resp.success) {
       const code = resp.error?.code;
-      if (code === "messaging/invalid-registration-token" || code === "messaging/registration-token-not-registered") {
+      if (
+        code === "messaging/invalid-registration-token" ||
+        code === "messaging/registration-token-not-registered"
+      ) {
         await db.collection("users").doc(users[idx].id).update({ fcmToken: null });
       }
     }
