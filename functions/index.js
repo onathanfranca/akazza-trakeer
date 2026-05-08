@@ -79,7 +79,7 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
 
   // ── CASO 1: Admin registra CPA próprio — sempre aprovado, notifica na hora ──
   if (ownerRole === "admin") {
-    const liquidoAdmin = valorAdmin - custoAdmin;
+    const liquidoAdmin = valorAdmin - valorDeposito;
     const titleDono = "+1 CPA REGISTRADO ✅";
     const textDono = liquidoAdmin > 0 ? `+${fmtBRL(liquidoAdmin)} pra conta! 💰` : `Casa: ${casaNome || "—"}`;
 
