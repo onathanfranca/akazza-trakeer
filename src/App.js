@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { useUsers, useCasas, useConfig } from './hooks/useAdmin';
 import { useNotifications } from './hooks/useNotifications';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from './firebase/config';
 
 import AuthPage from './pages/AuthPage';
 import AdminPainel from './pages/AdminPainel';
@@ -34,14 +36,30 @@ function Avatar({ foto, nome, size = 32 }) {
 
 export { Avatar };
 
+// Hook para contar CPAs pendentes (só usado por admins)
+function usePendentesCount(isAdmin) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    const q = query(collection(db, 'cpas'), where('status', '==', 'pendente'));
+    const unsub = onSnapshot(q, snap => setCount(snap.size));
+    return unsub;
+  }, [isAdmin]);
+  return count;
+}
+
 function AppInner() {
   const { currentUser, userProfile, logout, isAdmin } = useAuth();
   const { users, updateRole, removeUser } = useUsers();
   const { casas, saveCasa, addCasa, removeCasa } = useCasas();
   const { config, saveConfig } = useConfig();
   const { notify } = useNotifications();
+
   const [tab, setTab] = useState(isAdmin ? 'admin' : 'meu');
   const [dark, setDark] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const pendentesCount = usePendentesCount(isAdmin);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -53,7 +71,25 @@ function AppInner() {
     }
   }, [isAdmin]);
 
-  // Callback para admin receber notificação de CPA de qualquer afiliado
+  // Fecha drawer ao trocar de aba
+  function goTab(id) {
+    setTab(id);
+    setDrawerOpen(false);
+  }
+
+  // Fecha drawer ao apertar Escape
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') setDrawerOpen(false); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Trava scroll do body quando drawer aberto
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [drawerOpen]);
+
   function handleAdminNewCPA(cpa) {
     const user = users.find(u => u.uid === cpa.uid);
     const nome = user?.nome || 'Afiliado';
@@ -84,30 +120,85 @@ function AppInner() {
 
   return (
     <div className="app-layout">
+
+      {/* Overlay do drawer */}
+      <div
+        className={`drawer-overlay${drawerOpen ? ' open' : ''}`}
+        onClick={() => setDrawerOpen(false)}
+      />
+
+      {/* Drawer */}
+      <nav className={`drawer${drawerOpen ? ' open' : ''}`}>
+        <div className="drawer-header">
+          <div className="drawer-logo">⚡ AKAZZA <span>TRACKER</span></div>
+          <button className="drawer-close" onClick={() => setDrawerOpen(false)}>✕</button>
+        </div>
+
+        <div className="drawer-nav">
+          {tabs.map(t => {
+            const isPendingTab = t.id === 'admin' && isAdmin && pendentesCount > 0;
+            return (
+              <button
+                key={t.id}
+                className={`drawer-tab${tab === t.id ? ' active' : ''}`}
+                onClick={() => goTab(t.id)}
+              >
+                {t.label}
+                {isPendingTab && (
+                  <span className="drawer-tab-badge">{pendentesCount}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="drawer-footer">
+          <div className="drawer-user">
+            <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={36} />
+            <div>
+              <div className="drawer-user-name">{userProfile?.nome || currentUser?.email}</div>
+              <div className="drawer-user-role">{isAdmin ? '⚡ Admin' : 'Afiliado'}</div>
+            </div>
+          </div>
+          <div className="drawer-actions">
+            <button className="btn-theme" style={{ flex: 1 }} onClick={() => setDark(d => !d)}>
+              {dark ? '☀️ Light' : '🌙 Dark'}
+            </button>
+            <button className="btn-logout" style={{ flex: 1 }} onClick={logout}>Sair</button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Header */}
       <header className="header">
-        <div className="logo" onClick={() => setTab(isAdmin ? 'admin' : 'meu')}>⚡ AKAZZA <span>TRACKER</span></div>
-        <div className="header-right">
-          <div style={{ cursor: 'pointer' }} onClick={() => setTab('perfil')} title="Meu Perfil">
+        {/* Botão hamburguer — canto superior esquerdo */}
+        <button className="menu-toggle" onClick={() => setDrawerOpen(true)} aria-label="Abrir menu">
+          <span className="menu-toggle-bar" />
+          <span className="menu-toggle-bar" />
+          <span className="menu-toggle-bar" />
+          {isAdmin && pendentesCount > 0 && (
+            <span className="menu-toggle-badge">{pendentesCount}</span>
+          )}
+        </button>
+
+        {/* Logo centralizada */}
+        <div className="logo" onClick={() => goTab(isAdmin ? 'admin' : 'meu')} style={{ flex: 1, textAlign: 'center' }}>
+          ⚡ AKAZZA <span>TRACKER</span>
+        </div>
+
+        {/* Direita: avatar + tema */}
+        <div className="header-right" style={{ flexWrap: 'nowrap' }}>
+          <div style={{ cursor: 'pointer' }} onClick={() => goTab('perfil')} title="Meu Perfil">
             <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={34} />
           </div>
-          <div className="user-badge">
-            <strong>{userProfile?.nome || currentUser?.email}</strong>
-            {isAdmin && <span className="admin-pill">ADMIN</span>}
-          </div>
+          {isAdmin && (
+            <span className="admin-pill" style={{ whiteSpace: 'nowrap' }}>ADMIN</span>
+          )}
           <button className="btn-theme" onClick={() => setDark(d => !d)}>
-            {dark ? '☀️ Light' : '🌙 Dark'}
+            {dark ? '☀️' : '🌙'}
           </button>
-          <button className="btn-logout" onClick={logout}>Sair</button>
         </div>
       </header>
-
-      <nav className="nav-tabs">
-        {tabs.map(t => (
-          <button key={t.id} className={`nav-tab${tab === t.id ? ' active' : ''}`} onClick={() => setTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </nav>
 
       <main>
         {tab === 'admin' && isAdmin && (

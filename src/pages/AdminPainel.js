@@ -5,6 +5,7 @@ import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/f
 import { db } from '../firebase/config';
 import { useAllCPAs } from '../hooks/useAllCPAs';
 import { ComprovanteThumbnail, ComprovanteViewer, getComprovantesNormalizados } from '../components/Comprovantes';
+import CPAChart from '../components/CPAChart';
 import { useEffect } from 'react';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
@@ -50,7 +51,6 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
   const pendentes = usePendentes();
   const { cpas, loading } = useAllCPAs(applied.from, applied.to, onNewCPA);
 
-  // Só conta CPAs aprovados (ou sem status = legado)
   const afiliadoStats = useMemo(() => {
     const map = {};
     cpas.forEach(cpa => {
@@ -93,16 +93,22 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
     setProcessando('');
   }
 
+  // CPAs filtrados por casa para o gráfico
+  const cpasFiltrados = useMemo(() => {
+    if (filterCasa === 'Todas') return cpas;
+    return cpas.filter(c => c.casa === filterCasa);
+  }, [cpas, filterCasa]);
+
   return (
     <div className="fade-in">
       {viewingItem && <ComprovanteViewer item={viewingItem} onClose={() => setViewingItem(null)} />}
 
       {/* Fila de pendentes — só aparece se aprovação manual e tiver pendentes */}
       {!aprovacaoAuto && pendentes.length > 0 && (
-        <div className="manage-box" style={{ marginBottom: 18, borderColor: 'var(--accent)' }}>
+        <div className="manage-box" style={{ marginBottom: 18, borderColor: 'rgba(201,168,76,0.35)' }}>
           <div className="manage-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             🔍 CPAs Pendentes
-            <span style={{ background: 'var(--accent)', color: '#000', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>
+            <span style={{ background: 'var(--red)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99, animation: 'pulse-badge 1.8s ease-in-out infinite' }}>
               {pendentes.length}
             </span>
           </div>
@@ -112,7 +118,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
               const casa = casas.find(c => c.nome === cpa.casa);
               const valor = getValorCPA(cpa, casa, user?.role || 'afiliado');
               return (
-                <div key={cpa.id} style={{ background: 'var(--surface)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--border)' }}>
+                <div key={cpa.id} style={{ background: 'rgba(6,6,12,0.5)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--glass-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{user?.nome || 'Afiliado'}</div>
@@ -121,12 +127,11 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
                         {cpa.valorDeposito > 0 && ` • Dep: R$ ${Number(cpa.valorDeposito).toLocaleString('pt-BR')}`}
                       </div>
                     </div>
-                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--accent)' }}>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--accent)', textShadow: '0 0 10px rgba(201,168,76,0.5)' }}>
                       {fmtVal(valor)}
                     </div>
                   </div>
 
-                  {/* Comprovantes */}
                   {(() => { const imgs = getComprovantesNormalizados(cpa); return imgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                       {imgs.map((img, idx) => (
@@ -135,13 +140,12 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
                     </div>
                   ); })()}
 
-                  {/* Botões */}
                   {rejeitandoId === cpa.id ? (
                     <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                       <input className="input-field" style={{ flex: 1, minWidth: 160 }}
                         placeholder="Motivo da rejeição..."
                         value={motivo} onChange={e => setMotivo(e.target.value)} />
-                      <button className="btn-danger" style={{ padding: '7px 14px', fontSize: 12 }}
+                      <button className="btn-danger" style={{ padding: '7px 14px', fontSize: 12, background: 'var(--red)', color: '#fff', borderColor: 'var(--red)' }}
                         onClick={() => handleRejeitar(cpa.id)} disabled={processando === cpa.id}>
                         {processando === cpa.id ? '...' : 'Confirmar'}
                       </button>
@@ -184,9 +188,11 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
             }}
             style={{
               padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600,
-              border: periodo === opt.value ? '2px solid var(--accent)' : '1.5px solid var(--border)',
-              background: periodo === opt.value ? 'var(--accent)' : 'var(--card)',
-              color: periodo === opt.value ? '#000' : 'var(--text)', transition: 'all .15s'
+              border: periodo === opt.value ? '2px solid var(--accent)' : '1.5px solid var(--glass-border)',
+              background: periodo === opt.value ? 'var(--accent)' : 'var(--glass-bg)',
+              color: periodo === opt.value ? '#000' : 'var(--text)', transition: 'all .15s',
+              backdropFilter: 'blur(12px)',
+              boxShadow: periodo === opt.value ? '0 0 12px rgba(201,168,76,0.3)' : 'none',
             }}
           >{opt.label}</button>
         ))}
@@ -201,13 +207,15 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
         </div>
       )}
 
+      {/* Cards resumo */}
       <div className="resumo-grid">
         <div className="resumo-card"><div className="resumo-label">Total CPAs</div><div className="resumo-val white">{totals.total}</div></div>
         <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(totals.fat)}</div></div>
         <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(totals.custo)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--red)' : 'var(--green)' }}>{fmtVal(totals.lucro)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: totals.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(totals.lucro)}</div></div>
       </div>
 
+      {/* Meta */}
       <div className="meta-bar">
         <div className="meta-header">
           <div>
@@ -222,6 +230,16 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
           <div className={`progress-fill${pct >= 100 ? ' done' : ''}`} style={{ width: `${pct}%` }} />
         </div>
       </div>
+
+      {/* Gráfico de linha */}
+      {!loading && cpas.length > 0 && periodo !== '1d' && (
+        <CPAChart
+          cpas={cpasFiltrados}
+          dateFrom={applied.from}
+          dateTo={applied.to}
+          label="CPAs APROVADOS POR DIA"
+        />
+      )}
 
       <div className="section-title">👥 Afiliados</div>
       <div className="chips">
@@ -242,7 +260,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
               <div className="aff-card" key={aff.nome}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                   {aff.foto ? (
-                    <img src={aff.foto} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)' }} />
+                    <img src={aff.foto} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)', boxShadow: '0 0 8px rgba(201,168,76,0.3)' }} />
                   ) : (
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
                       {(aff.nome || '?')[0].toUpperCase()}
@@ -257,7 +275,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
                 <div className="aff-fin">
                   <div className="fin-row"><span className="fin-label">Faturamento</span><span className="fin-val yellow">{fmtVal(aff.faturamento)}</span></div>
                   <div className="fin-row"><span className="fin-label">Lucro</span><span className="fin-val" style={{ color: lucro < 0 ? 'var(--red)' : 'var(--green)' }}>{fmtVal(lucro)}</span></div>
-                  <div className="fin-row"><span className="fin-label">Custo (Dep.)</span><span className="fin-val red">{fmtVal(aff.custo)}</span></div>
+                  <div className="fin-row"><span className="fin-label">Custo (Dep.)</span><span className="fin-val" style={{ color: 'var(--red)' }}>{fmtVal(aff.custo)}</span></div>
                   <div className="fin-row"><span className="fin-label">R$/CPA</span><span className="fin-val">{aff.count > 0 ? fmtVal(Math.round(aff.faturamento / aff.count)) : '--'}</span></div>
                 </div>
               </div>

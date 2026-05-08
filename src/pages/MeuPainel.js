@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCPAs } from '../hooks/useCPAs';
 import { useToast } from '../context/ToastContext';
 import { ComprovanteThumbnail, ComprovanteThumbnailGrande, ComprovanteViewer, normalizar, getComprovantesNormalizados } from '../components/Comprovantes';
+import CPAChart from '../components/CPAChart';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
@@ -17,7 +18,6 @@ function getValorPorRole(casa, role) {
 
 function fmtVal(n) { return `R$ ${Number(Math.abs(n || 0)).toLocaleString('pt-BR')}`; }
 
-// Gera preview base64 para exibição imediata
 function previewImagem(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -40,7 +40,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const [selectedCasa, setSelectedCasa] = useState('');
   const [depositante, setDepositante] = useState('');
   const [valorDeposito, setValorDeposito] = useState('');
-  // imagens: array de { file: File, preview: string }
   const [imagens, setImagens] = useState([]);
   const [adding, setAdding] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -48,15 +47,15 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const [editingId, setEditingId] = useState(null);
   const [editNome, setEditNome] = useState('');
   const [editCasaVal, setEditCasaVal] = useState('');
-  const [editImgs, setEditImgs] = useState([]); // URLs existentes + novos { file, preview }
+  const [editImgs, setEditImgs] = useState([]);
   const [savingImgs, setSavingImgs] = useState(false);
   const [viewingItem, setViewingItem] = useState(null);
-  const [pagina, setPagina] = useState(20); // quantos CPAs mostrar
+  const [pagina, setPagina] = useState(20);
   const fileRef = useRef();
   const editFileRef = useRef();
 
   const filteredCPAs = useMemo(() => {
-    setPagina(20); // reseta paginação ao mudar filtro
+    setPagina(20);
     return filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa);
   }, [cpas, filterCasa]);
 
@@ -66,7 +65,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const stats = useMemo(() => {
     let faturamento = 0, custo = 0, totalAprovados = 0;
     cpas.forEach(c => {
-      // Só conta aprovados (ou sem status = legado)
       if (c.status === 'pendente' || c.status === 'rejeitado') return;
       totalAprovados++;
       faturamento += c.valorCPA != null ? Number(c.valorCPA) : getValorPorRole(casas.find(x => x.nome === c.casa), userProfile?.role);
@@ -102,7 +100,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
     setAdding(true);
     setUploadProgress('Enviando comprovantes...');
     try {
-      // Passa os Files para o useCPAs que faz o upload para o Storage
       await addCPA(selectedCasa, depositante.trim(), imagens.map(i => i.file), valorCPA, Number(valorDeposito));
       setDepositante('');
       setValorDeposito('');
@@ -126,11 +123,17 @@ export default function MeuPainel({ casas, metaDiaria }) {
 
   const getComprovantes = getComprovantesNormalizados;
 
+  function getImgSrc(img) {
+    if (typeof img === 'string') return img;
+    if (img?.preview) return img.preview;
+    if (img?.url) return img.url;
+    return '';
+  }
+
   function startEdit(cpa) {
     setEditingId(cpa.id);
     setEditNome(cpa.player || '');
     setEditCasaVal(cpa.casa);
-    // URLs existentes ficam como string, novos como { file, preview }
     setEditImgs(getComprovantes(cpa));
   }
 
@@ -156,10 +159,8 @@ export default function MeuPainel({ casas, metaDiaria }) {
   async function handleSaveEdit(id) {
     setSavingImgs(true);
     try {
-      // Separa URLs existentes de novos Files
       const existingUrls = editImgs.filter(i => typeof i === 'string');
       const newFiles = editImgs.filter(i => typeof i === 'object' && i.file).map(i => i.file);
-      // Passa tudo para editCPA — URLs existentes + novos Files
       const allImagens = [...existingUrls, ...newFiles];
       await editCPA(id, {
         player: editNome,
@@ -200,9 +201,11 @@ export default function MeuPainel({ casas, metaDiaria }) {
             }}
             style={{
               padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600,
-              border: periodo === opt.value ? '2px solid var(--accent)' : '1.5px solid var(--border)',
-              background: periodo === opt.value ? 'var(--accent)' : 'var(--card)',
-              color: periodo === opt.value ? '#000' : 'var(--text)', transition: 'all .15s'
+              border: periodo === opt.value ? '2px solid var(--accent)' : '1.5px solid var(--glass-border)',
+              background: periodo === opt.value ? 'var(--accent)' : 'var(--glass-bg)',
+              color: periodo === opt.value ? '#000' : 'var(--text)', transition: 'all .15s',
+              backdropFilter: 'blur(12px)',
+              boxShadow: periodo === opt.value ? '0 0 12px rgba(201,168,76,0.3)' : 'none',
             }}
           >{opt.label}</button>
         ))}
@@ -222,7 +225,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
         <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(stats.faturamento)}</div></div>
         <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(stats.custo)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--red)' : 'var(--green)' }}>{fmtVal(stats.lucro)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: stats.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(stats.lucro)}</div></div>
       </div>
 
       {/* Meta */}
@@ -241,22 +244,33 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       </div>
 
+      {/* Gráfico de linha */}
+      {!loading && cpas.length > 0 && periodo !== '1d' && (
+        <CPAChart
+          cpas={cpas}
+          dateFrom={applied.from}
+          dateTo={applied.to}
+          label="MEUS CPAs POR DIA"
+        />
+      )}
+
       {/* Links de divulgação */}
       {casas.some(c => c.link) && (
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', marginBottom: 18 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 2, color: 'var(--accent)', marginBottom: 12 }}>🔗 LINKS DE DIVULGAÇÃO</div>
+        <div style={{ background: 'var(--glass-bg)', backdropFilter: 'var(--glass-blur)', border: '1px solid var(--glass-border)', borderRadius: 12, padding: '16px 18px', marginBottom: 18, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)' }} />
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 2, color: 'var(--accent)', marginBottom: 12, textShadow: '0 0 8px rgba(201,168,76,0.35)' }}>🔗 LINKS DE DIVULGAÇÃO</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {casas.filter(c => c.link).map(c => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface)', borderRadius: 8, padding: '10px 14px', flexWrap: 'wrap' }}>
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'rgba(6,6,12,0.4)', borderRadius: 8, padding: '10px 14px', flexWrap: 'wrap', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>🏠 {c.nome}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.link}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => { navigator.clipboard.writeText(c.link); showToast('✅ Link copiado!', 'green'); }}
-                    style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text)', cursor: 'pointer' }}>📋 Copiar</button>
+                    style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text)', cursor: 'pointer', backdropFilter: 'blur(12px)' }}>📋 Copiar</button>
                   <a href={c.link} target="_blank" rel="noopener noreferrer"
-                    style={{ background: 'var(--accent)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#000', fontWeight: 700, textDecoration: 'none' }}>Abrir →</a>
+                    style={{ background: 'linear-gradient(135deg, var(--accent2), var(--accent))', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#000', fontWeight: 700, textDecoration: 'none' }}>Abrir →</a>
                 </div>
               </div>
             ))}
@@ -307,7 +321,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
             <label style={{
               display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
               padding: '9px 14px', borderRadius: 8,
-              border: `1.5px dashed ${imagens.length === 0 ? 'var(--accent)' : 'var(--border)'}`,
+              border: `1.5px dashed ${imagens.length === 0 ? 'var(--accent)' : 'var(--glass-border)'}`,
               color: imagens.length === 0 ? 'var(--accent)' : 'var(--text-muted)', fontSize: 13
             }}>
               📎 {imagens.length === 0 ? 'Anexar comprovante Pix *' : `Adicionar mais (${imagens.length}/4)`}
@@ -323,8 +337,8 @@ export default function MeuPainel({ casas, metaDiaria }) {
           const casa = casas.find(c => c.nome === selectedCasa);
           const val = getValorPorRole(casa, userProfile?.role);
           return val > 0 ? (
-            <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--surface)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)' }}>
-              💰 Valor do CPA: <strong style={{ color: 'var(--accent)' }}>R$ {val.toLocaleString('pt-BR')}</strong> <span style={{ fontSize: 11 }}>(será congelado no registro)</span>
+            <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(6,6,12,0.5)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+              💰 Valor do CPA: <strong style={{ color: 'var(--accent)', textShadow: '0 0 8px rgba(201,168,76,0.4)' }}>R$ {val.toLocaleString('pt-BR')}</strong> <span style={{ fontSize: 11 }}>(será congelado no registro)</span>
             </div>
           ) : null;
         })()}
@@ -364,8 +378,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                   {!isEditing && imgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                       {imgs.map((img, idx) => (
-                        <img key={idx} src={img} alt="comp" onClick={() => setViewingItem(img)}
-                          style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1.5px solid var(--accent)' }} />
+                        <ComprovanteThumbnail key={idx} item={img} idx={idx} onClick={setViewingItem} size={38} />
                       ))}
                     </div>
                   )}
@@ -415,11 +428,11 @@ export default function MeuPainel({ casas, metaDiaria }) {
                           <div key={idx} style={{ position: 'relative' }}>
                             <img src={getImgSrc(img)} alt={`comp ${idx+1}`} onClick={() => setViewingItem(img)}
                               style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '2px solid var(--accent)' }} />
-                            <button onClick={() => removeEditImg(idx)} style={{ position: 'absolute', top: -6, right: -6, background: '#e53', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
+                            <button onClick={() => removeEditImg(idx)} style={{ position: 'absolute', top: -6, right: -6, background: 'var(--red)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: '20px', padding: 0 }}>✕</button>
                           </div>
                         ))}
                         {editImgs.length < 4 && (
-                          <label style={{ width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22 }}>
+                          <label style={{ width: 56, height: 56, borderRadius: 8, border: '1.5px dashed var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22 }}>
                             +
                             <input ref={editFileRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }} onChange={handleEditFileChange} />
                           </label>
@@ -439,13 +452,14 @@ export default function MeuPainel({ casas, metaDiaria }) {
           })}
         </div>
       )}
-      {/* Botão carregar mais */}
+
       {temMais && (
         <button
           onClick={() => setPagina(p => p + 20)}
           style={{
             width: '100%', marginTop: 12, padding: '12px',
-            background: 'var(--card)', border: '1.5px solid var(--border)',
+            background: 'var(--glass-bg)', backdropFilter: 'blur(12px)',
+            border: '1px solid var(--glass-border)',
             borderRadius: 10, color: 'var(--text)', cursor: 'pointer',
             fontSize: 14, fontWeight: 600
           }}
