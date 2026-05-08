@@ -9,7 +9,9 @@ export default function Perfil() {
   const { currentUser, userProfile, updateProfile } = useAuth();
   const { showToast } = useToast();
   const [nome, setNome] = useState(userProfile?.nome || '');
+  const [pushcutUrl, setPushcutUrl] = useState(userProfile?.pushcutUrl || '');
   const [saving, setSaving] = useState(false);
+  const [testando, setTestando] = useState(false);
   const [fotoPreview, setFotoPreview] = useState(userProfile?.foto || null);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const fileRef = useRef();
@@ -17,15 +19,11 @@ export default function Perfil() {
   async function handleFotoChange(e) {
     const file = e.target.files[0];
     if (!file) return;
-
-    // Preview imediato
     const reader = new FileReader();
     reader.onload = (ev) => setFotoPreview(ev.target.result);
     reader.readAsDataURL(file);
-
     setUploadingFoto(true);
     try {
-      // Faz upload para o Storage
       const storageRef = ref(storage, `fotos/${currentUser.uid}/perfil.jpg`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
@@ -43,10 +41,32 @@ export default function Perfil() {
     if (!nome.trim()) { showToast('⚠️ Nome não pode ser vazio.', 'yellow'); return; }
     setSaving(true);
     try {
-      await updateProfile(currentUser.uid, { nome: nome.trim() });
+      await updateProfile(currentUser.uid, {
+        nome: nome.trim(),
+        pushcutUrl: pushcutUrl.trim()
+      });
       showToast('✅ Perfil atualizado!', 'green');
     } catch { showToast('Erro ao salvar.', 'red'); }
     setSaving(false);
+  }
+
+  async function handleTestarPushcut() {
+    if (!pushcutUrl.trim()) { showToast('⚠️ Cole a URL do Pushcut primeiro.', 'yellow'); return; }
+    setTestando(true);
+    try {
+      await fetch(pushcutUrl.trim(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: '⚡ AKAZZA TRACKER',
+          text: 'Notificações configuradas com sucesso! 🔥',
+        })
+      });
+      showToast('✅ Notificação de teste enviada!', 'green');
+    } catch {
+      showToast('Erro ao testar. Verifique a URL.', 'red');
+    }
+    setTestando(false);
   }
 
   return (
@@ -88,6 +108,45 @@ export default function Perfil() {
           <div>
             <div className="input-small-label">Função</div>
             <input className="input-field" value={userProfile?.role === 'admin' ? 'Administrador' : 'Afiliado'} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} />
+          </div>
+
+          {/* PUSHCUT */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginTop: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 16 }}>🔔</span>
+              <div className="input-small-label" style={{ margin: 0 }}>Notificações via Pushcut</div>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
+              Receba alertas no iPhone quando seus CPAs forem aprovados ou rejeitados.{' '}
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Como configurar:</span>{' '}
+              instale o app <strong>Pushcut</strong> → Automation Server → copie sua API Key → cole abaixo.
+            </div>
+            <input
+              className="input-field"
+              value={pushcutUrl}
+              onChange={e => setPushcutUrl(e.target.value)}
+              placeholder="https://api.pushcut.io/SUA_API_KEY/notifications/SuaNotificacao"
+              style={{ fontSize: 12 }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                onClick={handleTestarPushcut}
+                disabled={testando || !pushcutUrl.trim()}
+                style={{
+                  flex: 1, padding: '9px', background: 'var(--card)', border: '1.5px solid var(--border)',
+                  borderRadius: 8, color: 'var(--text)', cursor: pushcutUrl.trim() ? 'pointer' : 'not-allowed',
+                  fontSize: 13, fontWeight: 600, opacity: pushcutUrl.trim() ? 1 : 0.5
+                }}
+              >
+                {testando ? '⏳ Testando...' : '▶ Testar notificação'}
+              </button>
+            </div>
+            {pushcutUrl.trim() && (
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+                <span style={{ fontSize: 11, color: 'var(--green)' }}>Webhook configurado</span>
+              </div>
+            )}
           </div>
         </div>
 
