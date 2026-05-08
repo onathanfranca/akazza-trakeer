@@ -4,17 +4,107 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/logo512.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0a0f" />
     <meta name="description" content="AKAZZA TRACKER — Sistema de rastreamento de CPAs" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AKAZZA" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="AKAZZA" />
     <title>AKAZZA TRACKER</title>
+    <style>
+      /* Splash screen antes do React carregar */
+      #splash {
+        position: fixed;
+        inset: 0;
+        background: #0a0a0f;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        z-index: 99999;
+        transition: opacity 0.4s ease;
+      }
+      #splash.hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash img {
+        width: 110px;
+        height: 110px;
+        border-radius: 24px;
+        animation: pulse-logo 1.6s ease-in-out infinite;
+      }
+      #splash .title {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: 4px;
+        color: #C9A84C;
+        text-shadow: 0 0 20px #C9A84C88;
+      }
+      #splash .sub {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 11px;
+        letter-spacing: 3px;
+        color: #666;
+        text-transform: uppercase;
+      }
+      #splash .loader {
+        width: 40px;
+        height: 3px;
+        background: #1a1a2e;
+        border-radius: 99px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+      #splash .loader-bar {
+        height: 100%;
+        background: #C9A84C;
+        border-radius: 99px;
+        animation: loading-bar 1.4s ease-in-out infinite;
+      }
+      @keyframes pulse-logo {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.04); opacity: 0.92; }
+      }
+      @keyframes loading-bar {
+        0% { width: 0%; margin-left: 0%; }
+        50% { width: 70%; margin-left: 15%; }
+        100% { width: 0%; margin-left: 100%; }
+      }
+    </style>
   </head>
   <body>
     <noscript>Você precisa habilitar o JavaScript para usar este app.</noscript>
+
+    <!-- Splash screen -->
+    <div id="splash">
+      <img src="%PUBLIC_URL%/logo192.png" alt="Akazza" />
+      <div class="title">AKAZZA</div>
+      <div class="sub">Tracker</div>
+      <div class="loader"><div class="loader-bar"></div></div>
+    </div>
+
     <div id="root"></div>
+
+    <script>
+      // Remove splash quando React terminar de carregar
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          var splash = document.getElementById('splash');
+          if (splash) {
+            splash.classList.add('hide');
+            setTimeout(function() { splash.remove(); }, 400);
+          }
+        }, 800);
+      });
+    </script>
   </body>
 </html>

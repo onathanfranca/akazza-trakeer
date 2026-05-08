@@ -67,7 +67,15 @@ export default function Fechamento({ users, casas }) {
 
       const user = users.find(u => u.uid === selectedUid);
       let faturamento = 0;
+      let totalAprovados = 0;
+      let totalPendentes = 0;
+      let totalRejeitados = 0;
+
       cpas.forEach(cpa => {
+        if (cpa.status === 'rejeitado') { totalRejeitados++; return; }
+        if (cpa.status === 'pendente') { totalPendentes++; return; }
+        // aprovado ou sem status (legado)
+        totalAprovados++;
         const casa = casas.find(c => c.nome === cpa.casa);
         faturamento += getValorCPA(cpa, casa, user?.role || 'afiliado');
       });
@@ -77,7 +85,9 @@ export default function Fechamento({ users, casas }) {
         nomeAfiliado: user?.nome || '',
         dateFrom,
         dateTo,
-        totalCPAs: cpas.length,
+        totalCPAs: totalAprovados,
+        totalPendentes,
+        totalRejeitados,
         faturamento,
       });
     } catch (err) {
@@ -159,10 +169,24 @@ export default function Fechamento({ users, casas }) {
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, color: 'var(--accent)' }}>
                 📊 {preview.nomeAfiliado} — {fmtDate(preview.dateFrom)} a {fmtDate(preview.dateTo)}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }}>
-                <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{preview.totalCPAs}</div></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 8 }}>
+                <div className="resumo-card"><div className="resumo-label">CPAs Aprovados</div><div className="resumo-val white">{preview.totalCPAs}</div></div>
                 <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(preview.faturamento)}</div></div>
               </div>
+              {(preview.totalPendentes > 0 || preview.totalRejeitados > 0) && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                  {preview.totalPendentes > 0 && (
+                    <span style={{ fontSize: 12, background: '#f59e0b22', color: '#f59e0b', border: '1px solid #f59e0b44', borderRadius: 6, padding: '4px 10px' }}>
+                      ⏳ {preview.totalPendentes} pendente{preview.totalPendentes > 1 ? 's' : ''} (não incluído{preview.totalPendentes > 1 ? 's' : ''})
+                    </span>
+                  )}
+                  {preview.totalRejeitados > 0 && (
+                    <span style={{ fontSize: 12, background: 'var(--red)22', color: 'var(--red)', border: '1px solid var(--red)44', borderRadius: 6, padding: '4px 10px' }}>
+                      ❌ {preview.totalRejeitados} rejeitado{preview.totalRejeitados > 1 ? 's' : ''} (não incluído{preview.totalRejeitados > 1 ? 's' : ''})
+                    </span>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 160 }}>

@@ -117,7 +117,9 @@ export default function MeuPainel({ casas, metaDiaria }) {
     setAdding(false);
   }
 
-  async function handleRemove(id) {
+  async function handleRemove(id, nomeDepositante) {
+    const nome = nomeDepositante || 'este CPA';
+    if (!window.confirm(`Remover "${nome}"? Esta ação não pode ser desfeita.`)) return;
     try { await removeCPA(id); showToast('CPA removido.', 'yellow'); }
     catch { showToast('Erro ao remover.', 'red'); }
   }
@@ -388,7 +390,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
                       R$ {Math.abs(valorExibido).toLocaleString('pt-BR')}
                     </span>
                     <button className="btn-icon" onClick={() => isEditing ? cancelEdit() : startEdit(cpa)}>✏️</button>
-                    <button className="btn-danger" onClick={() => handleRemove(cpa.id)}>✕</button>
+                    <button className="btn-danger" onClick={() => handleRemove(cpa.id, cpa.player)}>✕</button>
                   </div>
                 </div>
 

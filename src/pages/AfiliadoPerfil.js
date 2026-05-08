@@ -1,5 +1,5 @@
 // src/pages/AfiliadoPerfil.js
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { format, startOfDay, endOfDay, parseISO, subDays } from 'date-fns';
@@ -49,20 +49,27 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
 
   useEffect(() => { fetchCpas(); }, []);
 
-  const filtered = useMemo(() =>
-    filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa),
-    [cpas, filterCasa]
-  );
+  const filtered = useMemo(() => {
+    setPagina && setPagina(20);
+    return filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa);
+  }, [cpas, filterCasa]);
 
   const stats = useMemo(() => {
-    let faturamento = 0, custo = 0;
+    let faturamento = 0, custo = 0, totalAprovados = 0;
     cpas.forEach(c => {
+      if (c.status === 'pendente' || c.status === 'rejeitado') return;
+      totalAprovados++;
       const casa = casas.find(x => x.nome === c.casa);
       faturamento += getValorCPA(c, casa, userRole);
       custo += Number(c.valorDeposito || 0);
     });
-    return { total: cpas.length, faturamento, custo, lucro: faturamento - custo };
+    return { total: totalAprovados, totalTodos: cpas.length, faturamento, custo, lucro: faturamento - custo };
   }, [cpas, casas, userRole]);
+
+  // Paginação
+  const [pagina, setPagina] = useState(20);
+  const cpasPaginados = filtered.slice(0, pagina);
+  const temMais = filtered.length > pagina;
 
   const getComprovantes = getComprovantesNormalizados;
 
@@ -114,7 +121,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
           ))}
         </div>
 
-        <div className="section-title">📋 CPAs — {filtered.length} registro{filtered.length !== 1 ? 's' : ''}</div>
+        <div className="section-title">📋 CPAs — {stats.totalTodos} total ({stats.total} aprovados)</div>
 
         {loading ? (
           <div className="loading-wrap"><div className="spinner" /><span className="loading-text">Carregando...</span></div>
@@ -122,7 +129,7 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
           <div className="empty"><div className="empty-icon">📭</div>Nenhum CPA neste período.</div>
         ) : (
           <div className="cpa-list">
-            {filtered.map(cpa => {
+            {cpasPaginados.map(cpa => {
               const casa = casas.find(c => c.nome === cpa.casa);
               const valorExibido = getValorCPA(cpa, casa, userRole);
               const imgs = getComprovantes(cpa);
@@ -136,7 +143,14 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
                     </div>
                   )}
                   <div className="cpa-info">
-                    <div className="cpa-nome">{cpa.player || 'Sem depositante'}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <div className="cpa-nome">{cpa.player || 'Sem depositante'}</div>
+                      {cpa.status === 'pendente' && <span style={{ fontSize: 10, background: '#f59e0b', color: '#000', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>⏳ Pendente</span>}
+                      {cpa.status === 'rejeitado' && <span style={{ fontSize: 10, background: 'var(--red)', color: '#fff', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>❌ Rejeitado</span>}
+                    </div>
+                    {cpa.status === 'rejeitado' && cpa.motivoRejeicao && (
+                      <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>Motivo: {cpa.motivoRejeicao}</div>
+                    )}
                     <div className="cpa-meta">
                       <span>{formatTime(cpa.createdAt)}</span>
                       <span className="casa-tag">{cpa.casa}</span>
@@ -155,6 +169,16 @@ export default function AfiliadoPerfil({ user, casas, onClose }) {
               );
             })}
           </div>
+          {temMais && (
+            <button onClick={() => setPagina(p => p + 20)} style={{
+              width: '100%', marginTop: 12, padding: '12px',
+              background: 'var(--card)', border: '1.5px solid var(--border)',
+              borderRadius: 10, color: 'var(--text)', cursor: 'pointer',
+              fontSize: 14, fontWeight: 600
+            }}>
+              Carregar mais ({filtered.length - pagina} restantes)
+            </button>
+          )}
         )}
       </div>
     </div>
