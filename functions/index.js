@@ -80,8 +80,8 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
   // ── CASO 1: Admin registra CPA próprio — sempre aprovado, notifica na hora ──
   if (ownerRole === "admin") {
     const liquidoAdmin = valorAdmin - custoAdmin;
-    const titleDono = "+1 CPA REGISTRADO";
-    const textDono = liquidoAdmin > 0 ? `+${fmtBRL(liquidoAdmin)} pra conta!` : `Casa: ${casaNome || "—"}`;
+    const titleDono = "+1 CPA REGISTRADO ✅";
+    const textDono = liquidoAdmin > 0 ? `+${fmtBRL(liquidoAdmin)} pra conta! 💰` : `Casa: ${casaNome || "—"}`;
 
     if (owner.fcmToken) {
       await enviarMensagens(messaging, db, [buildMsg(owner.fcmToken, titleDono, textDono)], [{ id: uid, ...owner }]);
@@ -100,8 +100,8 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
     const margemAdmin = valorAdmin - valorAfiliado;
 
     // Notifica afiliado
-    const titleDono = "+1 CPA REGISTRADO";
-    const textDono = liquidoDono > 0 ? `+${fmtBRL(liquidoDono)} na conta!` : `Casa: ${casaNome || "—"}`;
+    const titleDono = "+1 CPA REGISTRADO ✅";
+    const textDono = liquidoDono > 0 ? `+${fmtBRL(liquidoDono)} na conta! 💰` : `Casa: ${casaNome || "—"}`;
 
     if (owner.fcmToken) {
       await enviarMensagens(messaging, db, [buildMsg(owner.fcmToken, titleDono, textDono)], [{ id: uid, ...owner }]);
@@ -111,8 +111,8 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
     }
 
     // Notifica admins
-    const titleAdmin = `${nomeAfiliado} REGISTROU CPA`;
-    const textAdmin = margemAdmin > 0 ? `+${fmtBRL(margemAdmin)} pra conta!` : `Casa: ${casaNome || "—"}`;
+    const titleAdmin = `${nomeAfiliado} REGISTROU CPA ⚡`;
+    const textAdmin = margemAdmin > 0 ? `+${fmtBRL(margemAdmin)} pra conta! 💰` : `Casa: ${casaNome || "—"}`;
 
     const fcmAdmins = admins.filter(a => a.fcmToken && a.id !== uid);
     if (fcmAdmins.length > 0) {
@@ -129,7 +129,7 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
   }
 
   // ── CASO 3: Afiliado — aprovação manual (status pendente) — só avisa admins ──
-  const titleAdminPendente = `${nomeAfiliado} REGISTROU CPA`;
+  const titleAdminPendente = `${nomeAfiliado} REGISTROU CPA ⏳`;
   const textAdminPendente = `⏳ Aguardando aprovação — Casa: ${casaNome || "—"}`;
 
   const fcmAdminsPendente = admins.filter(a => a.fcmToken && a.id !== uid);
@@ -190,10 +190,10 @@ exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => 
     const liquidoDono = valorCPA - valorDeposito;
     const margemAdmin = valorAdmin - valorAfiliado;
 
-    const titleDono = "+1 CPA REGISTRADO";
-    const textDono = liquidoDono > 0 ? `+${fmtBRL(liquidoDono)} na conta!` : `Casa: ${casaNome || "—"}`;
-    const titleAdmin = `${nomeAfiliado} REGISTROU CPA`;
-    const textAdmin = margemAdmin > 0 ? `+${fmtBRL(margemAdmin)} pra conta!` : `Casa: ${casaNome || "—"}`;
+    const titleDono = "+1 CPA REGISTRADO ✅";
+    const textDono = liquidoDono > 0 ? `+${fmtBRL(liquidoDono)} na conta! 💰` : `Casa: ${casaNome || "—"}`;
+    const titleAdmin = `${nomeAfiliado} REGISTROU CPA ⚡`;
+    const textAdmin = margemAdmin > 0 ? `+${fmtBRL(margemAdmin)} pra conta! 💰` : `Casa: ${casaNome || "—"}`;
 
     if (user.fcmToken) {
       await enviarMensagens(messaging, db, [buildMsg(user.fcmToken, titleDono, textDono)], [{ id: uid, ...user }]);
@@ -215,7 +215,7 @@ exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => 
   } else {
     const motivo = depois.motivoRejeicao ? ` — ${depois.motivoRejeicao}` : "";
     const titleDono = "CPA REJEITADO ❌";
-    const textDono = `Casa: ${casaNome || "—"}${motivo}`;
+    const textDono = `Casa: ${casaNome || "—"}${motivo} 😔`;
     const titleAdmin = "CPA REJEITADO ❌";
     const textAdmin = `${nomeAfiliado} • Casa: ${casaNome || "—"}${motivo}`;
 
