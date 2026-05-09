@@ -106,7 +106,7 @@ function AppInner() {
     { id: 'ranking', label: '🏆 Ranking' },
     { id: 'aprovacoes', label: '✅ Aprovações' },
     { id: 'meu', label: '🏠 Meu Painel' },
-    { id: 'gerenciar', label: '👥 Afiliados' },
+    { id: 'gerenciar', label: '👥 Gerenciar' },
     { id: 'links', label: '🔗 Links' },
     { id: 'config', label: '⚙️ Config' },
     { id: 'fechamento', label: '💰 Fechamentos' },
