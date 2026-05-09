@@ -4,7 +4,7 @@ import { format, subDays } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { useCPAs } from '../hooks/useCPAs';
 import { useToast } from '../context/ToastContext';
-import { ComprovanteThumbnail, ComprovanteThumbnailGrande, ComprovanteViewer, normalizar, getComprovantesNormalizados } from '../components/Comprovantes';
+import { ComprovanteThumbnail, ComprovanteViewer, getComprovantesNormalizados } from '../components/Comprovantes';
 import CPAChart from '../components/CPAChart';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
@@ -228,6 +228,15 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: stats.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(stats.lucro)}</div></div>
       </div>
 
+      {/* Gráfico — acima da meta, sempre visível, baseado em faturamento */}
+      <CPAChart
+        cpas={cpas}
+        dateFrom={applied.from}
+        dateTo={applied.to}
+        casas={casas}
+        userRole={userProfile?.role || 'afiliado'}
+      />
+
       {/* Meta */}
       <div className="meta-bar">
         <div className="meta-header">
@@ -243,16 +252,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
           <div className={`progress-fill${pct >= 100 ? ' done' : ''}`} style={{ width: `${pct}%` }} />
         </div>
       </div>
-
-      {/* Gráfico de linha */}
-      {!loading && cpas.length > 0 && periodo !== '1d' && (
-        <CPAChart
-          cpas={cpas}
-          dateFrom={applied.from}
-          dateTo={applied.to}
-          label="MEUS CPAs POR DIA"
-        />
-      )}
 
       {/* Links de divulgação */}
       {casas.some(c => c.link) && (
@@ -304,7 +303,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
           </div>
         </div>
 
-        {/* Comprovantes */}
         <div style={{ marginTop: 10 }}>
           {imagens.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -332,7 +330,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
           )}
         </div>
 
-        {/* Preview valor CPA */}
         {selectedCasa && (() => {
           const casa = casas.find(c => c.nome === selectedCasa);
           const val = getValorPorRole(casa, userProfile?.role);
@@ -352,7 +349,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </button>
       </div>
 
-      {/* Filter chips */}
       <div className="chips">
         {['Todas', ...casas.map(c => c.nome)].map(nome => (
           <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>{nome}</div>

@@ -93,7 +93,6 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
     setProcessando('');
   }
 
-  // CPAs filtrados por casa para o gráfico
   const cpasFiltrados = useMemo(() => {
     if (filterCasa === 'Todas') return cpas;
     return cpas.filter(c => c.casa === filterCasa);
@@ -103,7 +102,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
     <div className="fade-in">
       {viewingItem && <ComprovanteViewer item={viewingItem} onClose={() => setViewingItem(null)} />}
 
-      {/* Fila de pendentes — só aparece se aprovação manual e tiver pendentes */}
+      {/* Fila de pendentes */}
       {!aprovacaoAuto && pendentes.length > 0 && (
         <div className="manage-box" style={{ marginBottom: 18, borderColor: 'rgba(201,168,76,0.35)' }}>
           <div className="manage-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -131,7 +130,6 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
                       {fmtVal(valor)}
                     </div>
                   </div>
-
                   {(() => { const imgs = getComprovantesNormalizados(cpa); return imgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                       {imgs.map((img, idx) => (
@@ -139,7 +137,6 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
                       ))}
                     </div>
                   ); })()}
-
                   {rejeitandoId === cpa.id ? (
                     <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                       <input className="input-field" style={{ flex: 1, minWidth: 160 }}
@@ -215,6 +212,15 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
         <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: totals.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(totals.lucro)}</div></div>
       </div>
 
+      {/* Gráfico — acima da meta, sempre visível, baseado em faturamento */}
+      <CPAChart
+        cpas={cpasFiltrados}
+        dateFrom={applied.from}
+        dateTo={applied.to}
+        casas={casas}
+        userRole="admin"
+      />
+
       {/* Meta */}
       <div className="meta-bar">
         <div className="meta-header">
@@ -230,16 +236,6 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
           <div className={`progress-fill${pct >= 100 ? ' done' : ''}`} style={{ width: `${pct}%` }} />
         </div>
       </div>
-
-      {/* Gráfico de linha */}
-      {!loading && cpas.length > 0 && periodo !== '1d' && (
-        <CPAChart
-          cpas={cpasFiltrados}
-          dateFrom={applied.from}
-          dateTo={applied.to}
-          label="CPAs APROVADOS POR DIA"
-        />
-      )}
 
       <div className="section-title">👥 Afiliados</div>
       <div className="chips">
