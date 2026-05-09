@@ -52,7 +52,7 @@ export default function CPAChart({ cpas, dateFrom, dateTo, casas, userRole }) {
 
   // Dimensões maiores — melhor no mobile
   const W = 600;
-  const H = 180;
+  const H = 250;
   const PAD_L = 44;
   const PAD_R = 16;
   const PAD_T = 16;
@@ -164,7 +164,7 @@ export default function CPAChart({ cpas, dateFrom, dateTo, casas, userRole }) {
                 stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
               {pct > 0 && (
                 <text x={PAD_L - 6} y={y + 4}
-                  fill="rgba(107,107,138,0.65)" fontSize="9" textAnchor="end">
+                  fill="rgba(107,107,138,0.65)" fontSize="12" textAnchor="end">
                   {fmtY(v)}
                 </text>
               )}
@@ -181,7 +181,7 @@ export default function CPAChart({ cpas, dateFrom, dateTo, casas, userRole }) {
             points={points}
             fill="none"
             stroke="#C9A84C"
-            strokeWidth="2.5"
+            strokeWidth="3.0"
             strokeLinejoin="round"
             strokeLinecap="round"
             filter="url(#chartGlow)"
