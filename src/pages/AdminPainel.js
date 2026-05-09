@@ -204,15 +204,7 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
         </div>
       )}
 
-      {/* Cards resumo */}
-      <div className="resumo-grid">
-        <div className="resumo-card"><div className="resumo-label">Total CPAs</div><div className="resumo-val white">{totals.total}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(totals.fat)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(totals.custo)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: totals.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(totals.lucro)}</div></div>
-      </div>
-
-      {/* Gráfico — acima da meta, sempre visível, baseado em faturamento */}
+      {/* ── GRÁFICO PRIMEIRO ── */}
       <CPAChart
         cpas={cpasFiltrados}
         dateFrom={applied.from}
@@ -220,6 +212,14 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
         casas={casas}
         userRole="admin"
       />
+
+      {/* Cards resumo */}
+      <div className="resumo-grid">
+        <div className="resumo-card"><div className="resumo-label">Total CPAs</div><div className="resumo-val white">{totals.total}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(totals.fat)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(totals.custo)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: totals.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(totals.lucro)}</div></div>
+      </div>
 
       {/* Meta */}
       <div className="meta-bar">

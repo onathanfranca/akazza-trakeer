@@ -220,15 +220,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="resumo-grid">
-        <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(stats.faturamento)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(stats.custo)}</div></div>
-        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: stats.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(stats.lucro)}</div></div>
-      </div>
-
-      {/* Gráfico — acima da meta, sempre visível, baseado em faturamento */}
+      {/* ── GRÁFICO PRIMEIRO ── */}
       <CPAChart
         cpas={cpas}
         dateFrom={applied.from}
@@ -236,6 +228,14 @@ export default function MeuPainel({ casas, metaDiaria }) {
         casas={casas}
         userRole={userProfile?.role || 'afiliado'}
       />
+
+      {/* Stats */}
+      <div className="resumo-grid">
+        <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(stats.faturamento)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Custo (Dep.)</div><div className="resumo-val red">{fmtVal(stats.custo)}</div></div>
+        <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: stats.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(stats.lucro)}</div></div>
+      </div>
 
       {/* Meta */}
       <div className="meta-bar">
