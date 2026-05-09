@@ -16,6 +16,7 @@ import Config from './pages/Config';
 import Perfil from './pages/Perfil';
 import Fechamento from './pages/Fechamento';
 import Aprovacoes from './pages/Aprovacoes';
+import Links from './pages/Links';
 import MeusFechamentos from './pages/MeusFechamentos';
 
 import './styles/global.css';
@@ -106,6 +107,7 @@ function AppInner() {
     { id: 'aprovacoes', label: '✅ Aprovações' },
     { id: 'meu', label: '🏠 Meu Painel' },
     { id: 'gerenciar', label: '👥 Afiliados' },
+    { id: 'links', label: '🔗 Links' },
     { id: 'config', label: '⚙️ Config' },
     { id: 'fechamento', label: '💰 Fechamentos' },
     { id: 'perfil', label: '👤 Perfil' },
@@ -114,6 +116,7 @@ function AppInner() {
   const AFF_TABS = [
     { id: 'meu', label: '🏠 Meu Painel' },
     { id: 'ranking', label: '🏆 Ranking' },
+    { id: 'links', label: '🔗 Links' },
     { id: 'meusfechamentos', label: '💰 Fechamentos' },
     { id: 'perfil', label: '👤 Perfil' },
   ];
@@ -220,6 +223,9 @@ function AppInner() {
         )}
         {tab === 'meu' && (
           <MeuPainel casas={casas} metaDiaria={config.metaDiaria} />
+        )}
+        {tab === 'links' && (
+          <Links casas={casas} />
         )}
         {tab === 'gerenciar' && isAdmin && (
           <Gerenciar
