@@ -44,6 +44,9 @@ export default function Ranking({ casas, users }) {
   const ranked = useMemo(() => {
     const map = {};
     cpas.forEach(cpa => {
+      // ✅ CORREÇÃO: ignora CPAs que não foram aprovados
+      if (cpa.status !== 'aprovado') return;
+
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
