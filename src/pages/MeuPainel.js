@@ -253,30 +253,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       </div>
 
-      {/* Links de divulgação */}
-      {casas.some(c => c.link) && (
-        <div style={{ background: 'var(--glass-bg)', backdropFilter: 'var(--glass-blur)', border: '1px solid var(--glass-border)', borderRadius: 12, padding: '16px 18px', marginBottom: 18, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)' }} />
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 2, color: 'var(--accent)', marginBottom: 12, textShadow: '0 0 8px rgba(201,168,76,0.35)' }}>🔗 LINKS DE DIVULGAÇÃO</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {casas.filter(c => c.link).map(c => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'rgba(6,6,12,0.4)', borderRadius: 8, padding: '10px 14px', flexWrap: 'wrap', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>🏠 {c.nome}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.link}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => { navigator.clipboard.writeText(c.link); showToast('✅ Link copiado!', 'green'); }}
-                    style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: 'var(--text)', cursor: 'pointer', backdropFilter: 'blur(12px)' }}>📋 Copiar</button>
-                  <a href={c.link} target="_blank" rel="noopener noreferrer"
-                    style={{ background: 'linear-gradient(135deg, var(--accent2), var(--accent))', borderRadius: 7, padding: '6px 12px', fontSize: 12, color: '#000', fontWeight: 700, textDecoration: 'none' }}>Abrir →</a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Add CPA */}
       <div className="add-box">
         <div className="add-title">➕ Registrar CPA</div>
