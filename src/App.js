@@ -15,6 +15,7 @@ import Gerenciar from './pages/Gerenciar';
 import Config from './pages/Config';
 import Perfil from './pages/Perfil';
 import Fechamento from './pages/Fechamento';
+import Aprovacoes from './pages/Aprovacoes';
 import MeusFechamentos from './pages/MeusFechamentos';
 
 import './styles/global.css';
@@ -102,6 +103,7 @@ function AppInner() {
   const ADMIN_TABS = [
     { id: 'admin', label: '📊 Painel Geral' },
     { id: 'ranking', label: '🏆 Ranking' },
+    { id: 'aprovacoes', label: '✅ Aprovações' },
     { id: 'meu', label: '🏠 Meu Painel' },
     { id: 'gerenciar', label: '👥 Afiliados' },
     { id: 'config', label: '⚙️ Config' },
@@ -136,7 +138,7 @@ function AppInner() {
 
         <div className="drawer-nav">
           {tabs.map(t => {
-            const isPendingTab = t.id === 'admin' && isAdmin && pendentesCount > 0;
+            const isPendingTab = t.id === 'aprovacoes' && isAdmin && pendentesCount > 0;
             return (
               <button
                 key={t.id}
@@ -209,6 +211,9 @@ function AppInner() {
             onNewCPA={handleAdminNewCPA}
             config={config}
           />
+        )}
+        {tab === 'aprovacoes' && isAdmin && (
+          <Aprovacoes casas={casas} users={users} />
         )}
         {tab === 'ranking' && (
           <Ranking casas={casas} users={users} />
