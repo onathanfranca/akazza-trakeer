@@ -16,8 +16,43 @@ function fmtTs(ts) {
   return format(d, 'dd/MM/yyyy');
 }
 
+// ─── Exportar CSV ─────────────────────────────────────────────────────────────
+function exportarCSV(fechamentos, nomeAfiliado) {
+  const linhas = [
+    ['Período início', 'Período fim', 'CPAs', 'Faturamento (R$)', 'Valor recebido (R$)', 'Observação', 'Pago em']
+  ];
+
+  fechamentos.forEach(f => {
+    const criadoEm = f.criadoEm
+      ? (f.criadoEm.toDate ? f.criadoEm.toDate() : new Date(f.criadoEm))
+      : null;
+    linhas.push([
+      fmtDate(f.dateFrom),
+      fmtDate(f.dateTo),
+      f.totalCPAs ?? 0,
+      Number(f.faturamento || 0).toFixed(2).replace('.', ','),
+      Number(f.valorPago || 0).toFixed(2).replace('.', ','),
+      f.observacao || '',
+      criadoEm ? format(criadoEm, 'dd/MM/yyyy') : '--',
+    ]);
+  });
+
+  const csv = linhas
+    .map(row => row.map(cel => `"${String(cel).replace(/"/g, '""')}"`).join(';'))
+    .join('\r\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const nome = nomeAfiliado ? `_${nomeAfiliado.replace(/\s+/g, '_')}` : '';
+  a.href = url;
+  a.download = `meus_fechamentos${nome}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function MeusFechamentos() {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { fechamentos, loading } = useFechamentos(currentUser?.uid);
 
   const total = fechamentos.reduce((acc, f) => acc + Number(f.valorPago || 0), 0);
@@ -44,7 +79,26 @@ export default function MeusFechamentos() {
         </div>
       )}
 
-      <div className="section-title">💰 Meus Fechamentos</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        <div className="section-title" style={{ margin: 0 }}>💰 Meus Fechamentos</div>
+        {fechamentos.length > 0 && (
+          <button
+            onClick={() => exportarCSV(fechamentos, userProfile?.nome)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: 'var(--card)', border: '1.5px solid var(--border)',
+              color: 'var(--text)', cursor: 'pointer', whiteSpace: 'nowrap',
+              transition: 'border-color .15s, color .15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)'; }}
+            title="Exportar fechamentos para CSV"
+          >
+            📥 Exportar CSV
+          </button>
+        )}
+      </div>
 
       {loading ? (
         <div className="loading-wrap"><div className="spinner" /><span className="loading-text">Carregando...</span></div>
@@ -60,7 +114,6 @@ export default function MeusFechamentos() {
               background: 'var(--card)', borderRadius: 14, padding: '16px 18px',
               border: '1px solid var(--border)'
             }}>
-              {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>
@@ -80,7 +133,6 @@ export default function MeusFechamentos() {
                 </span>
               </div>
 
-              {/* Stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 <div style={{ background: 'var(--surface)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>CPAs</div>

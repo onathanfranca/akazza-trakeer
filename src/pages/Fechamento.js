@@ -27,18 +27,53 @@ function getValorCPA(cpa, casa, userRole) {
   return casa.valorAfiliado ?? casa.valor ?? 0;
 }
 
+// ─── Exportar CSV ─────────────────────────────────────────────────────────────
+function exportarCSV(fechamentos, nomeAfiliado = null) {
+  const linhas = [
+    ['Afiliado', 'Período início', 'Período fim', 'CPAs', 'Faturamento (R$)', 'Valor pago (R$)', 'Observação', 'Registrado em']
+  ];
+
+  fechamentos.forEach(f => {
+    const criadoEm = f.criadoEm
+      ? (f.criadoEm.toDate ? f.criadoEm.toDate() : new Date(f.criadoEm))
+      : null;
+    linhas.push([
+      f.nomeAfiliado || '',
+      fmtDate(f.dateFrom),
+      fmtDate(f.dateTo),
+      f.totalCPAs ?? 0,
+      Number(f.faturamento || 0).toFixed(2).replace('.', ','),
+      Number(f.valorPago || 0).toFixed(2).replace('.', ','),
+      f.observacao || '',
+      criadoEm ? format(criadoEm, 'dd/MM/yyyy HH:mm') : '--',
+    ]);
+  });
+
+  const csv = linhas
+    .map(row => row.map(cel => `"${String(cel).replace(/"/g, '""')}"`).join(';'))
+    .join('\r\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const sufixo = nomeAfiliado ? `_${nomeAfiliado.replace(/\s+/g, '_')}` : '';
+  a.href = url;
+  a.download = `fechamentos${sufixo}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Fechamento({ users, casas }) {
   const { showToast } = useToast();
   const { fechamentos, loading: loadingFech, criarFechamento, deletarFechamento } = useFechamentos();
 
-  // Formulário de novo fechamento
   const [selectedUid, setSelectedUid] = useState('');
   const [dateFrom, setDateFrom] = useState(daysAgo(6));
   const [dateTo, setDateTo] = useState(today());
   const [valorPago, setValorPago] = useState('');
   const [observacao, setObservacao] = useState('');
   const [calculando, setCalculando] = useState(false);
-  const [preview, setPreview] = useState(null); // dados calculados antes de fechar
+  const [preview, setPreview] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [filtroAfiliado, setFiltroAfiliado] = useState('todos');
 
@@ -74,7 +109,6 @@ export default function Fechamento({ users, casas }) {
       cpas.forEach(cpa => {
         if (cpa.status === 'rejeitado') { totalRejeitados++; return; }
         if (cpa.status === 'pendente') { totalPendentes++; return; }
-        // aprovado ou sem status (legado)
         totalAprovados++;
         const casa = casas.find(c => c.nome === cpa.casa);
         faturamento += getValorCPA(cpa, casa, user?.role || 'afiliado');
@@ -128,6 +162,11 @@ export default function Fechamento({ users, casas }) {
     [fechamentos, filtroAfiliado]
   );
 
+  const nomeAfiliadoFiltro = useMemo(() => {
+    if (filtroAfiliado === 'todos') return null;
+    return afiliados.find(u => u.uid === filtroAfiliado)?.nome || null;
+  }, [filtroAfiliado, afiliados]);
+
   return (
     <div className="fade-in">
 
@@ -136,7 +175,6 @@ export default function Fechamento({ users, casas }) {
         <div className="manage-title">💰 Novo Fechamento</div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Selecionar afiliado */}
           <div>
             <div className="input-small-label">Afiliado</div>
             <select className="input-field" value={selectedUid} onChange={e => { setSelectedUid(e.target.value); setPreview(null); }}>
@@ -147,7 +185,6 @@ export default function Fechamento({ users, casas }) {
             </select>
           </div>
 
-          {/* Período */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 140 }}>
               <div className="input-small-label">Data início</div>
@@ -163,7 +200,6 @@ export default function Fechamento({ users, casas }) {
             {calculando ? '⏳ Calculando...' : '🔍 Calcular período'}
           </button>
 
-          {/* Preview calculado */}
           {preview && (
             <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, border: '1px solid var(--border)' }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, color: 'var(--accent)' }}>
@@ -215,11 +251,32 @@ export default function Fechamento({ users, casas }) {
       <div className="manage-box">
         <div className="manage-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <span>📋 Histórico de Fechamentos</span>
-          <select className="input-field" style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
-            value={filtroAfiliado} onChange={e => setFiltroAfiliado(e.target.value)}>
-            <option value="todos">Todos os afiliados</option>
-            {afiliados.map(u => <option key={u.uid} value={u.uid}>{u.nome}</option>)}
-          </select>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <select className="input-field" style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
+              value={filtroAfiliado} onChange={e => setFiltroAfiliado(e.target.value)}>
+              <option value="todos">Todos os afiliados</option>
+              {afiliados.map(u => <option key={u.uid} value={u.uid}>{u.nome}</option>)}
+            </select>
+            {fechamentosFiltrados.length > 0 && (
+              <button
+                onClick={() => {
+                  exportarCSV(fechamentosFiltrados, nomeAfiliadoFiltro);
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: 'var(--card)', border: '1.5px solid var(--border)',
+                  color: 'var(--text)', cursor: 'pointer', whiteSpace: 'nowrap',
+                  transition: 'border-color .15s, color .15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)'; }}
+                title="Exportar fechamentos para CSV"
+              >
+                📥 Exportar CSV
+              </button>
+            )}
+          </div>
         </div>
 
         {loadingFech ? (
@@ -233,7 +290,6 @@ export default function Fechamento({ users, casas }) {
                 background: 'var(--surface)', borderRadius: 12, padding: '14px 16px',
                 border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8
               }}>
-                {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{f.nomeAfiliado}</div>
@@ -248,7 +304,6 @@ export default function Fechamento({ users, casas }) {
                   </div>
                 </div>
 
-                {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                   <div className="resumo-card" style={{ padding: '8px 12px' }}>
                     <div className="resumo-label">CPAs</div>
