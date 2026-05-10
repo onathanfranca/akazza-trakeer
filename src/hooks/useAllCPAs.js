@@ -7,13 +7,14 @@ import {
 import { db } from '../firebase/config';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
-export function useAllCPAs(dateFrom, dateTo, onNewCPA = null) {
+export function useAllCPAs(dateFrom, dateTo, tenantId, onNewCPA = null) {
   const [cpas, setCPAs] = useState([]);
   const [loading, setLoading] = useState(true);
   const isFirstLoad = useRef(true);
   const knownIds = useRef(new Set());
 
   useEffect(() => {
+    if (!tenantId) return;
     isFirstLoad.current = true;
     knownIds.current = new Set();
 
@@ -22,6 +23,7 @@ export function useAllCPAs(dateFrom, dateTo, onNewCPA = null) {
 
     const q = query(
       collection(db, 'cpas'),
+      where('tenantId', '==', tenantId),
       where('createdAt', '>=', from),
       where('createdAt', '<=', to),
       orderBy('createdAt', 'desc')
@@ -48,7 +50,7 @@ export function useAllCPAs(dateFrom, dateTo, onNewCPA = null) {
     });
 
     return unsub;
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, tenantId]);
 
   return { cpas, loading };
 }

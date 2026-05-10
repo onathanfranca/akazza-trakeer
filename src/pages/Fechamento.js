@@ -1,4 +1,4 @@
-// src/pages/Fechamento.js — Admin: criar e gerenciar fechamentos
+// src/pages/Fechamento.js
 import React, { useState, useMemo } from 'react';
 import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
@@ -27,32 +27,13 @@ function getValorCPA(cpa, casa, userRole) {
   return casa.valorAfiliado ?? casa.valor ?? 0;
 }
 
-// ─── Exportar CSV ─────────────────────────────────────────────────────────────
 function exportarCSV(fechamentos, nomeAfiliado = null) {
-  const linhas = [
-    ['Afiliado', 'Período início', 'Período fim', 'CPAs', 'Faturamento (R$)', 'Valor pago (R$)', 'Observação', 'Registrado em']
-  ];
-
+  const linhas = [['Afiliado', 'Período início', 'Período fim', 'CPAs', 'Faturamento (R$)', 'Valor pago (R$)', 'Observação', 'Registrado em']];
   fechamentos.forEach(f => {
-    const criadoEm = f.criadoEm
-      ? (f.criadoEm.toDate ? f.criadoEm.toDate() : new Date(f.criadoEm))
-      : null;
-    linhas.push([
-      f.nomeAfiliado || '',
-      fmtDate(f.dateFrom),
-      fmtDate(f.dateTo),
-      f.totalCPAs ?? 0,
-      Number(f.faturamento || 0).toFixed(2).replace('.', ','),
-      Number(f.valorPago || 0).toFixed(2).replace('.', ','),
-      f.observacao || '',
-      criadoEm ? format(criadoEm, 'dd/MM/yyyy HH:mm') : '--',
-    ]);
+    const criadoEm = f.criadoEm ? (f.criadoEm.toDate ? f.criadoEm.toDate() : new Date(f.criadoEm)) : null;
+    linhas.push([f.nomeAfiliado || '', fmtDate(f.dateFrom), fmtDate(f.dateTo), f.totalCPAs ?? 0, Number(f.faturamento || 0).toFixed(2).replace('.', ','), Number(f.valorPago || 0).toFixed(2).replace('.', ','), f.observacao || '', criadoEm ? format(criadoEm, 'dd/MM/yyyy HH:mm') : '--']);
   });
-
-  const csv = linhas
-    .map(row => row.map(cel => `"${String(cel).replace(/"/g, '""')}"`).join(';'))
-    .join('\r\n');
-
+  const csv = linhas.map(row => row.map(cel => `"${String(cel).replace(/"/g, '""')}"`).join(';')).join('\r\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -63,9 +44,9 @@ function exportarCSV(fechamentos, nomeAfiliado = null) {
   URL.revokeObjectURL(url);
 }
 
-export default function Fechamento({ users, casas }) {
+export default function Fechamento({ users, casas, tenantId }) {
   const { showToast } = useToast();
-  const { fechamentos, loading: loadingFech, criarFechamento, deletarFechamento } = useFechamentos();
+  const { fechamentos, loading: loadingFech, criarFechamento, deletarFechamento } = useFechamentos(tenantId);
 
   const [selectedUid, setSelectedUid] = useState('');
   const [dateFrom, setDateFrom] = useState(daysAgo(6));
@@ -77,10 +58,7 @@ export default function Fechamento({ users, casas }) {
   const [salvando, setSalvando] = useState(false);
   const [filtroAfiliado, setFiltroAfiliado] = useState('todos');
 
-  const afiliados = useMemo(() =>
-    users.filter(u => u.role === 'afiliado'),
-    [users]
-  );
+  const afiliados = useMemo(() => users.filter(u => u.role === 'afiliado'), [users]);
 
   async function handleCalcular() {
     if (!selectedUid) { showToast('⚠️ Selecione um afiliado!', 'yellow'); return; }
@@ -92,6 +70,7 @@ export default function Fechamento({ users, casas }) {
       const to = Timestamp.fromDate(endOfDay(parseISO(dateTo)));
       const q = query(
         collection(db, 'cpas'),
+        where('tenantId', '==', tenantId),
         where('uid', '==', selectedUid),
         where('createdAt', '>=', from),
         where('createdAt', '<=', to),
@@ -101,10 +80,7 @@ export default function Fechamento({ users, casas }) {
       const cpas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       const user = users.find(u => u.uid === selectedUid);
-      let faturamento = 0;
-      let totalAprovados = 0;
-      let totalPendentes = 0;
-      let totalRejeitados = 0;
+      let faturamento = 0, totalAprovados = 0, totalPendentes = 0, totalRejeitados = 0;
 
       cpas.forEach(cpa => {
         if (cpa.status === 'rejeitado') { totalRejeitados++; return; }
@@ -114,16 +90,7 @@ export default function Fechamento({ users, casas }) {
         faturamento += getValorCPA(cpa, casa, user?.role || 'afiliado');
       });
 
-      setPreview({
-        uid: selectedUid,
-        nomeAfiliado: user?.nome || '',
-        dateFrom,
-        dateTo,
-        totalCPAs: totalAprovados,
-        totalPendentes,
-        totalRejeitados,
-        faturamento,
-      });
+      setPreview({ uid: selectedUid, nomeAfiliado: user?.nome || '', dateFrom, dateTo, totalCPAs: totalAprovados, totalPendentes, totalRejeitados, faturamento });
     } catch (err) {
       console.error(err);
       showToast('Erro ao calcular.', 'red');
@@ -138,10 +105,7 @@ export default function Fechamento({ users, casas }) {
     try {
       await criarFechamento({ ...preview, valorPago: Number(valorPago), observacao });
       showToast('✅ Fechamento registrado!', 'green');
-      setPreview(null);
-      setValorPago('');
-      setObservacao('');
-      setSelectedUid('');
+      setPreview(null); setValorPago(''); setObservacao(''); setSelectedUid('');
     } catch (err) {
       console.error(err);
       showToast('Erro ao salvar fechamento.', 'red');
@@ -156,9 +120,7 @@ export default function Fechamento({ users, casas }) {
   }
 
   const fechamentosFiltrados = useMemo(() =>
-    filtroAfiliado === 'todos'
-      ? fechamentos
-      : fechamentos.filter(f => f.uid === filtroAfiliado),
+    filtroAfiliado === 'todos' ? fechamentos : fechamentos.filter(f => f.uid === filtroAfiliado),
     [fechamentos, filtroAfiliado]
   );
 
@@ -169,22 +131,16 @@ export default function Fechamento({ users, casas }) {
 
   return (
     <div className="fade-in">
-
-      {/* Formulário novo fechamento */}
       <div className="manage-box">
         <div className="manage-title">💰 Novo Fechamento</div>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <div className="input-small-label">Afiliado</div>
             <select className="input-field" value={selectedUid} onChange={e => { setSelectedUid(e.target.value); setPreview(null); }}>
               <option value="">Selecione o afiliado...</option>
-              {afiliados.map(u => (
-                <option key={u.uid} value={u.uid}>{u.nome}</option>
-              ))}
+              {afiliados.map(u => <option key={u.uid} value={u.uid}>{u.nome}</option>)}
             </select>
           </div>
-
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 140 }}>
               <div className="input-small-label">Data início</div>
@@ -195,7 +151,6 @@ export default function Fechamento({ users, casas }) {
               <input type="date" className="input-field" value={dateTo} onChange={e => { setDateTo(e.target.value); setPreview(null); }} />
             </div>
           </div>
-
           <button className="btn-secondary" style={{ alignSelf: 'flex-start', padding: '9px 20px' }} onClick={handleCalcular} disabled={calculando}>
             {calculando ? '⏳ Calculando...' : '🔍 Calcular período'}
           </button>
@@ -223,12 +178,10 @@ export default function Fechamento({ users, casas }) {
                   )}
                 </div>
               )}
-
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 160 }}>
                   <div className="input-small-label">Valor pago (R$) *</div>
-                  <input className="input-field" type="number" min="0" step="0.01"
-                    placeholder="Ex: 850.00"
+                  <input className="input-field" type="number" min="0" step="0.01" placeholder="Ex: 850.00"
                     value={valorPago} onChange={e => setValorPago(e.target.value)}
                     style={{ borderColor: (!valorPago || Number(valorPago) <= 0) ? 'var(--accent)' : 'var(--border)' }} />
                 </div>
@@ -238,7 +191,6 @@ export default function Fechamento({ users, casas }) {
                     value={observacao} onChange={e => setObservacao(e.target.value)} />
                 </div>
               </div>
-
               <button className="btn-primary" style={{ marginTop: 14, width: '100%' }} onClick={handleSalvar} disabled={salvando}>
                 {salvando ? 'Salvando...' : '✅ Confirmar Fechamento'}
               </button>
@@ -247,7 +199,6 @@ export default function Fechamento({ users, casas }) {
         </div>
       </div>
 
-      {/* Histórico de fechamentos */}
       <div className="manage-box">
         <div className="manage-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <span>📋 Histórico de Fechamentos</span>
@@ -258,21 +209,10 @@ export default function Fechamento({ users, casas }) {
               {afiliados.map(u => <option key={u.uid} value={u.uid}>{u.nome}</option>)}
             </select>
             {fechamentosFiltrados.length > 0 && (
-              <button
-                onClick={() => {
-                  exportarCSV(fechamentosFiltrados, nomeAfiliadoFiltro);
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  background: 'var(--card)', border: '1.5px solid var(--border)',
-                  color: 'var(--text)', cursor: 'pointer', whiteSpace: 'nowrap',
-                  transition: 'border-color .15s, color .15s',
-                }}
+              <button onClick={() => exportarCSV(fechamentosFiltrados, nomeAfiliadoFiltro)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--card)', border: '1.5px solid var(--border)', color: 'var(--text)', cursor: 'pointer', whiteSpace: 'nowrap' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)'; }}
-                title="Exportar fechamentos para CSV"
-              >
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)'; }}>
                 📥 Exportar CSV
               </button>
             )}
@@ -286,16 +226,11 @@ export default function Fechamento({ users, casas }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {fechamentosFiltrados.map(f => (
-              <div key={f.id} style={{
-                background: 'var(--surface)', borderRadius: 12, padding: '14px 16px',
-                border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8
-              }}>
+              <div key={f.id} style={{ background: 'var(--surface)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{f.nomeAfiliado}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      {fmtDate(f.dateFrom)} → {fmtDate(f.dateTo)} • Registrado em {fmtTs(f.criadoEm)}
-                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{fmtDate(f.dateFrom)} → {fmtDate(f.dateTo)} • Registrado em {fmtTs(f.criadoEm)}</div>
                     {f.observacao && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>📝 {f.observacao}</div>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -303,20 +238,10 @@ export default function Fechamento({ users, casas }) {
                     <button className="btn-danger" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => handleDeletar(f.id, f.nomeAfiliado)}>✕</button>
                   </div>
                 </div>
-
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  <div className="resumo-card" style={{ padding: '8px 12px' }}>
-                    <div className="resumo-label">CPAs</div>
-                    <div className="resumo-val white" style={{ fontSize: 20 }}>{f.totalCPAs}</div>
-                  </div>
-                  <div className="resumo-card" style={{ padding: '8px 12px' }}>
-                    <div className="resumo-label">Faturamento</div>
-                    <div className="resumo-val yellow" style={{ fontSize: 16 }}>{fmtVal(f.faturamento)}</div>
-                  </div>
-                  <div className="resumo-card" style={{ padding: '8px 12px' }}>
-                    <div className="resumo-label">Valor Pago</div>
-                    <div className="resumo-val green" style={{ fontSize: 16 }}>{fmtVal(f.valorPago)}</div>
-                  </div>
+                  <div className="resumo-card" style={{ padding: '8px 12px' }}><div className="resumo-label">CPAs</div><div className="resumo-val white" style={{ fontSize: 20 }}>{f.totalCPAs}</div></div>
+                  <div className="resumo-card" style={{ padding: '8px 12px' }}><div className="resumo-label">Faturamento</div><div className="resumo-val yellow" style={{ fontSize: 16 }}>{fmtVal(f.faturamento)}</div></div>
+                  <div className="resumo-card" style={{ padding: '8px 12px' }}><div className="resumo-label">Valor Pago</div><div className="resumo-val green" style={{ fontSize: 16 }}>{fmtVal(f.valorPago)}</div></div>
                 </div>
               </div>
             ))}

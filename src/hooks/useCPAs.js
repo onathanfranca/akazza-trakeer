@@ -31,7 +31,6 @@ function compressImage(file) {
 }
 
 async function uploadArquivo(uid, cpaId, arquivo, index) {
-  // URL existente — retorna direto
   if (typeof arquivo === 'string' && arquivo.startsWith('https://')) return arquivo;
 
   let blob;
@@ -57,30 +56,28 @@ async function uploadArquivo(uid, cpaId, arquivo, index) {
   const storageRef = ref(storage, `comprovantes/${uid}/${cpaId}_${index}_${Date.now()}.${extensao}`);
   await uploadBytes(storageRef, blob, { contentType: tipo });
   const url = await getDownloadURL(storageRef);
-  // Salva metadado do tipo junto com a URL
   return { url, tipo: extensao === 'pdf' ? 'pdf' : 'imagem' };
 }
 
-// Busca se aprovação automática está ativa
-async function getAprovacaoAutomatica() {
+async function getAprovacaoAutomatica(tenantId) {
   try {
-    const snap = await getDoc(doc(db, 'config', 'geral'));
+    const snap = await getDoc(doc(db, 'config', tenantId));
     if (snap.exists()) {
       const data = snap.data();
-      return data.aprovacaoAutomatica !== false; // default true
+      return data.aprovacaoAutomatica !== false;
     }
   } catch {}
   return true;
 }
 
-export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
+export function useCPAs(uid, dateFrom, dateTo, tenantId, onNewCPA = null) {
   const [cpas, setCPAs] = useState([]);
   const [loading, setLoading] = useState(true);
   const isFirstLoad = useRef(true);
   const knownIds = useRef(new Set());
 
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || !tenantId) return;
     isFirstLoad.current = true;
     knownIds.current = new Set();
 
@@ -89,6 +86,7 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
 
     const q = query(
       collection(db, 'cpas'),
+      where('tenantId', '==', tenantId),
       where('uid', '==', uid),
       where('createdAt', '>=', from),
       where('createdAt', '<=', to),
@@ -114,15 +112,15 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
     });
 
     return unsub;
-  }, [uid, dateFrom, dateTo]);
+  }, [uid, dateFrom, dateTo, tenantId]);
 
   async function addCPA(casa, player = '', imagensBase64 = [], valorCPA = 0, valorDeposito = 0) {
-    // Verifica se aprovação automática está ativa
-    const autoAprovado = await getAprovacaoAutomatica();
+    const autoAprovado = await getAprovacaoAutomatica(tenantId);
     const status = autoAprovado ? 'aprovado' : 'pendente';
 
     const docRef = await addDoc(collection(db, 'cpas'), {
       uid,
+      tenantId,
       casa,
       player,
       valorCPA: Number(valorCPA),
@@ -150,7 +148,6 @@ export function useCPAs(uid, dateFrom, dateTo, onNewCPA = null) {
     if (data.comprovantes && data.comprovantes.length > 0) {
       const resultados = await Promise.all(
         data.comprovantes.map((item, i) => {
-          // Se já for objeto {url, tipo} salvo, retorna direto
           if (item && typeof item === 'object' && item.url) return Promise.resolve(item);
           return uploadArquivo(uid, id, item, i);
         })

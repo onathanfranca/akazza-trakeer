@@ -14,17 +14,12 @@ function Avatar({ foto, nome, size = 36 }) {
     <img src={foto} alt="avatar" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)', flexShrink: 0 }} />
   );
   return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', background: 'var(--card)',
-      border: '2px solid var(--accent)', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', fontSize: size * 0.4, color: 'var(--text-muted)', flexShrink: 0
-    }}>
+    <div style={{ width: size, height: size, borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, color: 'var(--text-muted)', flexShrink: 0 }}>
       {(nome || '?')[0].toUpperCase()}
     </div>
   );
 }
 
-// Pega valorCPA congelado no CPA ou busca na casa pelo role
 function getValorCPA(cpa, casa, userRole) {
   if (cpa.valorCPA != null) return Number(cpa.valorCPA);
   if (!casa) return 0;
@@ -32,21 +27,19 @@ function getValorCPA(cpa, casa, userRole) {
   return casa.valorAfiliado ?? casa.valor ?? 0;
 }
 
-export default function Ranking({ casas, users }) {
+export default function Ranking({ casas, users, tenantId }) {
   const [periodo, setPeriodo] = useState('7d');
   const [dateFrom, setDateFrom] = useState(daysAgo(6));
   const [dateTo, setDateTo] = useState(today());
   const [applied, setApplied] = useState({ from: daysAgo(6), to: today() });
   const [filterCasa, setFilterCasa] = useState('Todas');
 
-  const { cpas, loading } = useAllCPAs(applied.from, applied.to);
+  const { cpas, loading } = useAllCPAs(applied.from, applied.to, tenantId);
 
   const ranked = useMemo(() => {
     const map = {};
     cpas.forEach(cpa => {
-      // CPAs sem status = legado, tratar como aprovado
       if (cpa.status && cpa.status !== 'aprovado') return;
-
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
       if (!user) return;
@@ -66,7 +59,6 @@ export default function Ranking({ casas, users }) {
 
   return (
     <div className="fade-in">
-      {/* Período rápido */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         {[
           { label: 'Hoje', value: '1d' },
@@ -85,13 +77,11 @@ export default function Ranking({ casas, users }) {
               padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600,
               border: periodo === opt.value ? '2px solid var(--accent)' : '1.5px solid var(--border)',
               background: periodo === opt.value ? 'var(--accent)' : 'var(--card)',
-              color: periodo === opt.value ? '#000' : 'var(--text)',
-              transition: 'all .15s'
+              color: periodo === opt.value ? '#000' : 'var(--text)', transition: 'all .15s'
             }}
           >{opt.label}</button>
         ))}
       </div>
-      {/* Filtro personalizado */}
       {periodo === 'custom' && (
         <div className="date-filter" style={{ marginBottom: 10 }}>
           <label>De</label>
@@ -103,12 +93,9 @@ export default function Ranking({ casas, users }) {
       )}
 
       <div className="section-title">🏆 Ranking de CPAs</div>
-
       <div className="chips">
         {['Todas', ...casas.map(c => c.nome)].map(nome => (
-          <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>
-            {nome}
-          </div>
+          <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>{nome}</div>
         ))}
       </div>
 
@@ -126,7 +113,7 @@ export default function Ranking({ casas, users }) {
               <Avatar foto={aff.foto} nome={aff.nome} size={36} />
               <div className="rank-info">
                 <div className="rank-nome">{aff.nome}</div>
-                <div className="rank-sub">Fat: {fmt(aff.faturamento)} • Dep: {fmt(aff.custo)} • Lucro: <span style={{color: aff.lucro < 0 ? 'var(--red)' : 'var(--green)'}}>{fmt(aff.lucro)}</span></div>
+                <div className="rank-sub">Fat: {fmt(aff.faturamento)} • Dep: {fmt(aff.custo)} • Lucro: <span style={{ color: aff.lucro < 0 ? 'var(--red)' : 'var(--green)' }}>{fmt(aff.lucro)}</span></div>
               </div>
               <div className="rank-num">{aff.count}<span> CPAs</span></div>
             </div>

@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { useUsers, useCasas, useConfig } from './hooks/useAdmin';
-import { useNotifications } from './hooks/useNotifications';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase/config';
 
@@ -38,24 +37,26 @@ function Avatar({ foto, nome, size = 32 }) {
 
 export { Avatar };
 
-// Hook para contar CPAs pendentes (só usado por admins)
-function usePendentesCount(isAdmin) {
+function usePendentesCount(isAdmin, tenantId) {
   const [count, setCount] = useState(0);
   useEffect(() => {
-    if (!isAdmin) return;
-    const q = query(collection(db, 'cpas'), where('status', '==', 'pendente'));
+    if (!isAdmin || !tenantId) return;
+    const q = query(
+      collection(db, 'cpas'),
+      where('tenantId', '==', tenantId),
+      where('status', '==', 'pendente')
+    );
     const unsub = onSnapshot(q, snap => setCount(snap.size));
     return unsub;
-  }, [isAdmin]);
+  }, [isAdmin, tenantId]);
   return count;
 }
 
 function AppInner() {
-  const { currentUser, userProfile, logout, isAdmin } = useAuth();
-  const { users, updateRole, removeUser } = useUsers();
-  const { casas, saveCasa, addCasa, removeCasa } = useCasas();
-  const { config, saveConfig } = useConfig();
-  const { notify } = useNotifications();
+  const { currentUser, userProfile, logout, isAdmin, isSuperAdmin, tenantId } = useAuth();
+  const { users, updateRole, removeUser } = useUsers(tenantId);
+  const { casas, saveCasa, addCasa, removeCasa } = useCasas(tenantId);
+  const { config, saveConfig } = useConfig(tenantId);
 
   const [tab, setTab] = useState(isAdmin ? 'admin' : 'meu');
   const [dark, setDark] = useState(() => {
@@ -64,7 +65,7 @@ function AppInner() {
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const pendentesCount = usePendentesCount(isAdmin);
+  const pendentesCount = usePendentesCount(isAdmin, tenantId);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -77,33 +78,21 @@ function AppInner() {
     }
   }, [isAdmin]);
 
-  // Fecha drawer ao trocar de aba
   function goTab(id) {
     setTab(id);
     setDrawerOpen(false);
   }
 
-  // Fecha drawer ao apertar Escape
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') setDrawerOpen(false); }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Trava scroll do body quando drawer aberto
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [drawerOpen]);
-
-  function handleAdminNewCPA(cpa) {
-    const user = users.find(u => u.uid === cpa.uid);
-    const nome = user?.nome || 'Afiliado';
-    notify({
-      title: 'Novo CPA ✅',
-      body: `${nome} registrou +1 CPA${cpa.casa ? ` - ${cpa.casa}` : ''}`,
-    });
-  }
 
   const ADMIN_TABS = [
     { id: 'admin', label: '📊 Painel Geral' },
@@ -115,6 +104,7 @@ function AppInner() {
     { id: 'config', label: '⚙️ Config' },
     { id: 'fechamento', label: '💰 Fechamentos' },
     { id: 'perfil', label: '👤 Perfil' },
+    ...(isSuperAdmin ? [{ id: 'superadmin', label: '🌐 Super Admin' }] : []),
   ];
 
   const AFF_TABS = [
@@ -130,13 +120,11 @@ function AppInner() {
   return (
     <div className="app-layout">
 
-      {/* Overlay do drawer */}
       <div
         className={`drawer-overlay${drawerOpen ? ' open' : ''}`}
         onClick={() => setDrawerOpen(false)}
       />
 
-      {/* Drawer */}
       <nav className={`drawer${drawerOpen ? ' open' : ''}`}>
         <div className="drawer-header">
           <div className="drawer-logo">⚡ AKAZZA <span>TRACKER</span></div>
@@ -166,7 +154,9 @@ function AppInner() {
             <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={36} />
             <div>
               <div className="drawer-user-name">{userProfile?.nome || currentUser?.email}</div>
-              <div className="drawer-user-role">{isAdmin ? '⚡ Admin' : 'Afiliado'}</div>
+              <div className="drawer-user-role">
+                {isSuperAdmin ? '👑 Super Admin' : isAdmin ? '⚡ Admin' : 'Afiliado'}
+              </div>
             </div>
           </div>
           <div className="drawer-actions">
@@ -178,9 +168,7 @@ function AppInner() {
         </div>
       </nav>
 
-      {/* Header */}
       <header className="header">
-        {/* Botão hamburguer — canto superior esquerdo */}
         <button className="menu-toggle" onClick={() => setDrawerOpen(true)} aria-label="Abrir menu">
           <span className="menu-toggle-bar" />
           <span className="menu-toggle-bar" />
@@ -190,17 +178,18 @@ function AppInner() {
           )}
         </button>
 
-        {/* Logo centralizada */}
         <div className="logo" onClick={() => goTab(isAdmin ? 'admin' : 'meu')} style={{ flex: 1, textAlign: 'center' }}>
           ⚡ AKAZZA <span>TRACKER</span>
         </div>
 
-        {/* Direita: avatar + tema */}
         <div className="header-right" style={{ flexWrap: 'nowrap' }}>
           <div style={{ cursor: 'pointer' }} onClick={() => goTab('perfil')} title="Meu Perfil">
             <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={34} />
           </div>
-          {isAdmin && (
+          {isSuperAdmin && (
+            <span className="admin-pill" style={{ whiteSpace: 'nowrap', background: 'var(--accent)' }}>👑 SUPER</span>
+          )}
+          {isAdmin && !isSuperAdmin && (
             <span className="admin-pill" style={{ whiteSpace: 'nowrap' }}>ADMIN</span>
           )}
           <button className="btn-theme" onClick={() => setDark(d => !d)}>
@@ -215,18 +204,18 @@ function AppInner() {
             casas={casas}
             users={users}
             metaDiaria={config.metaDiaria}
-            onNewCPA={handleAdminNewCPA}
             config={config}
+            tenantId={tenantId}
           />
         )}
         {tab === 'aprovacoes' && isAdmin && (
-          <Aprovacoes casas={casas} users={users} />
+          <Aprovacoes casas={casas} users={users} tenantId={tenantId} />
         )}
         {tab === 'ranking' && (
-          <Ranking casas={casas} users={users} />
+          <Ranking casas={casas} users={users} tenantId={tenantId} />
         )}
         {tab === 'meu' && (
-          <MeuPainel casas={casas} metaDiaria={config.metaDiaria} />
+          <MeuPainel casas={casas} metaDiaria={config.metaDiaria} tenantId={tenantId} />
         )}
         {tab === 'links' && (
           <Links casas={casas} />
@@ -241,13 +230,19 @@ function AppInner() {
           <Config config={config} saveConfig={saveConfig} />
         )}
         {tab === 'fechamento' && isAdmin && (
-          <Fechamento users={users} casas={casas} />
+          <Fechamento users={users} casas={casas} tenantId={tenantId} />
         )}
         {tab === 'meusfechamentos' && !isAdmin && (
-          <MeusFechamentos />
+          <MeusFechamentos tenantId={tenantId} />
         )}
         {tab === 'perfil' && (
           <Perfil />
+        )}
+        {tab === 'superadmin' && isSuperAdmin && (
+          <div style={{ padding: '2rem', color: 'var(--text)' }}>
+            <h2>🌐 Super Admin</h2>
+            <p style={{ color: 'var(--text-muted)' }}>Painel de tenants — em breve.</p>
+          </div>
         )}
       </main>
     </div>

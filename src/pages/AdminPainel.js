@@ -1,12 +1,11 @@
 // src/pages/AdminPainel.js
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { format, subDays } from 'date-fns';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAllCPAs } from '../hooks/useAllCPAs';
 import { ComprovanteThumbnail, ComprovanteViewer, getComprovantesNormalizados } from '../components/Comprovantes';
 import CPAChart from '../components/CPAChart';
-import { useEffect } from 'react';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
@@ -24,19 +23,24 @@ function getValorCPA(cpa, casa, userRole) {
   return casa.valorAfiliado ?? casa.valor ?? 0;
 }
 
-function usePendentes() {
+function usePendentes(tenantId) {
   const [pendentes, setPendentes] = useState([]);
   useEffect(() => {
-    const q = query(collection(db, 'cpas'), where('status', '==', 'pendente'));
+    if (!tenantId) return;
+    const q = query(
+      collection(db, 'cpas'),
+      where('tenantId', '==', tenantId),
+      where('status', '==', 'pendente')
+    );
     const unsub = onSnapshot(q, snap => {
       setPendentes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return unsub;
-  }, []);
+  }, [tenantId]);
   return pendentes;
 }
 
-export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config }) {
+export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config, tenantId }) {
   const [periodo, setPeriodo] = useState('7d');
   const [dateFrom, setDateFrom] = useState(daysAgo(6));
   const [dateTo, setDateTo] = useState(today());
@@ -48,8 +52,8 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
   const [viewingItem, setViewingItem] = useState(null);
 
   const aprovacaoAuto = config?.aprovacaoAutomatica !== false;
-  const pendentes = usePendentes();
-  const { cpas, loading } = useAllCPAs(applied.from, applied.to, onNewCPA);
+  const pendentes = usePendentes(tenantId);
+  const { cpas, loading } = useAllCPAs(applied.from, applied.to, tenantId, onNewCPA);
 
   const afiliadoStats = useMemo(() => {
     const map = {};
@@ -102,7 +106,6 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
     <div className="fade-in">
       {viewingItem && <ComprovanteViewer item={viewingItem} onClose={() => setViewingItem(null)} />}
 
-      {/* Fila de pendentes */}
       {!aprovacaoAuto && pendentes.length > 0 && (
         <div className="manage-box" style={{ marginBottom: 18, borderColor: 'rgba(201,168,76,0.35)' }}>
           <div className="manage-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -168,7 +171,6 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
         </div>
       )}
 
-      {/* Período rápido */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         {[
           { label: 'Hoje', value: '1d' },
@@ -204,16 +206,8 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
         </div>
       )}
 
-      {/* ── GRÁFICO PRIMEIRO ── */}
-      <CPAChart
-        cpas={cpasFiltrados}
-        dateFrom={applied.from}
-        dateTo={applied.to}
-        casas={casas}
-        userRole="admin"
-      />
+      <CPAChart cpas={cpasFiltrados} dateFrom={applied.from} dateTo={applied.to} casas={casas} userRole="admin" />
 
-      {/* Cards resumo */}
       <div className="resumo-grid">
         <div className="resumo-card"><div className="resumo-label">Total CPAs</div><div className="resumo-val white">{totals.total}</div></div>
         <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(totals.fat)}</div></div>
@@ -221,7 +215,6 @@ export default function AdminPainel({ casas, users, metaDiaria, onNewCPA, config
         <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: totals.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: totals.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(totals.lucro)}</div></div>
       </div>
 
-      {/* Meta */}
       <div className="meta-bar">
         <div className="meta-header">
           <div>

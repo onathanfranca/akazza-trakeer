@@ -33,8 +33,8 @@ const STATUS_FILTROS = [
   { key: 'rejeitado', label: '❌ Rejeitados' },
 ];
 
-export default function MeuPainel({ casas, metaDiaria }) {
-  const { currentUser, userProfile, isAdmin } = useAuth();
+export default function MeuPainel({ casas, metaDiaria, tenantId }) {
+  const { currentUser, userProfile } = useAuth();
   const { showCPAToast, showToast } = useToast();
 
   const [periodo, setPeriodo] = useState('7d');
@@ -42,7 +42,9 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const [dateTo, setDateTo] = useState(today());
   const [applied, setApplied] = useState({ from: daysAgo(6), to: today() });
 
-  const { cpas, loading, addCPA, removeCPA, editCPA } = useCPAs(currentUser?.uid, applied.from, applied.to);
+  const { cpas, loading, addCPA, removeCPA, editCPA } = useCPAs(
+    currentUser?.uid, applied.from, applied.to, tenantId
+  );
 
   const [selectedCasa, setSelectedCasa] = useState('');
   const [depositante, setDepositante] = useState('');
@@ -51,7 +53,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const [adding, setAdding] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [filterCasa, setFilterCasa] = useState('Todas');
-  const [filterStatus, setFilterStatus] = useState('todos'); // ← novo
+  const [filterStatus, setFilterStatus] = useState('todos');
   const [editingId, setEditingId] = useState(null);
   const [editNome, setEditNome] = useState('');
   const [editCasaVal, setEditCasaVal] = useState('');
@@ -62,7 +64,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const fileRef = useRef();
   const editFileRef = useRef();
 
-  // Contadores por status (sobre todos os CPAs do período, sem filtro de casa)
   const statusCount = useMemo(() => {
     const counts = { aprovado: 0, pendente: 0, rejeitado: 0 };
     cpas.forEach(c => {
@@ -187,12 +188,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
       const existingUrls = editImgs.filter(i => typeof i === 'string');
       const newFiles = editImgs.filter(i => typeof i === 'object' && i.file).map(i => i.file);
       const allImagens = [...existingUrls, ...newFiles];
-      await editCPA(id, {
-        player: editNome,
-        casa: editCasaVal,
-        comprovantes: allImagens,
-        comprovante: null,
-      });
+      await editCPA(id, { player: editNome, casa: editCasaVal, comprovantes: allImagens, comprovante: null });
       showToast('✅ CPA atualizado!', 'green');
       cancelEdit();
     } catch { showToast('Erro ao atualizar.', 'red'); }
@@ -209,7 +205,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
     <div className="fade-in">
       {viewingItem && <ComprovanteViewer item={viewingItem} onClose={() => setViewingItem(null)} />}
 
-      {/* Período rápido */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         {[
           { label: 'Hoje', value: '1d' },
@@ -245,16 +240,8 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       )}
 
-      {/* Gráfico */}
-      <CPAChart
-        cpas={cpas}
-        dateFrom={applied.from}
-        dateTo={applied.to}
-        casas={casas}
-        userRole={userProfile?.role || 'afiliado'}
-      />
+      <CPAChart cpas={cpas} dateFrom={applied.from} dateTo={applied.to} casas={casas} userRole={userProfile?.role || 'afiliado'} />
 
-      {/* Stats */}
       <div className="resumo-grid">
         <div className="resumo-card"><div className="resumo-label">CPAs</div><div className="resumo-val white">{stats.total}</div></div>
         <div className="resumo-card"><div className="resumo-label">Faturamento</div><div className="resumo-val yellow">{fmtVal(stats.faturamento)}</div></div>
@@ -262,7 +249,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         <div className="resumo-card"><div className="resumo-label">Lucro</div><div className="resumo-val" style={{ color: stats.lucro < 0 ? 'var(--red)' : 'var(--green)', textShadow: stats.lucro < 0 ? '0 0 10px rgba(229,57,53,0.35)' : '0 0 10px rgba(26,170,110,0.4)' }}>{fmtVal(stats.lucro)}</div></div>
       </div>
 
-      {/* Meta */}
       <div className="meta-bar">
         <div className="meta-header">
           <div>
@@ -278,7 +264,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       </div>
 
-      {/* Add CPA */}
       <div className="add-box">
         <div className="add-title">➕ Registrar CPA</div>
         <div className="add-grid">
@@ -350,50 +335,27 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </button>
       </div>
 
-      {/* Filtro por casa */}
       <div className="chips">
         {['Todas', ...casas.map(c => c.nome)].map(nome => (
           <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>{nome}</div>
         ))}
       </div>
 
-      {/* ── Filtro por status ── */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, marginTop: 4 }}>
         {STATUS_FILTROS.map(f => {
           const count = f.key === 'todos' ? cpas.length : statusCount[f.key] ?? 0;
           const isActive = filterStatus === f.key;
           const borderColor = isActive
-            ? f.key === 'aprovado' ? 'var(--green)'
-            : f.key === 'pendente' ? '#f59e0b'
-            : f.key === 'rejeitado' ? 'var(--red)'
-            : 'var(--accent)'
+            ? f.key === 'aprovado' ? 'var(--green)' : f.key === 'pendente' ? '#f59e0b' : f.key === 'rejeitado' ? 'var(--red)' : 'var(--accent)'
             : 'var(--border)';
           const bgColor = isActive
-            ? f.key === 'aprovado' ? 'rgba(26,170,110,0.12)'
-            : f.key === 'pendente' ? 'rgba(245,158,11,0.12)'
-            : f.key === 'rejeitado' ? 'rgba(229,57,53,0.12)'
-            : 'var(--glass-bg)'
+            ? f.key === 'aprovado' ? 'rgba(26,170,110,0.12)' : f.key === 'pendente' ? 'rgba(245,158,11,0.12)' : f.key === 'rejeitado' ? 'rgba(229,57,53,0.12)' : 'var(--glass-bg)'
             : 'var(--card)';
           return (
-            <button
-              key={f.key}
-              onClick={() => setFilterStatus(f.key)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                border: `1.5px solid ${borderColor}`,
-                background: bgColor,
-                color: isActive ? 'var(--text)' : 'var(--text-muted)',
-                cursor: 'pointer', transition: 'all .15s',
-              }}
-            >
+            <button key={f.key} onClick={() => setFilterStatus(f.key)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: `1.5px solid ${borderColor}`, background: bgColor, color: isActive ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer', transition: 'all .15s' }}>
               {f.label}
-              <span style={{
-                background: isActive ? borderColor : 'var(--surface)',
-                color: isActive ? (f.key === 'pendente' ? '#000' : f.key === 'todos' ? '#000' : '#fff') : 'var(--text-muted)',
-                fontSize: 10, fontWeight: 700,
-                padding: '1px 6px', borderRadius: 99, minWidth: 18, textAlign: 'center'
-              }}>
+              <span style={{ background: isActive ? borderColor : 'var(--surface)', color: isActive ? (f.key === 'pendente' ? '#000' : f.key === 'todos' ? '#000' : '#fff') : 'var(--text-muted)', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99, minWidth: 18, textAlign: 'center' }}>
                 {count}
               </span>
             </button>
@@ -451,7 +413,6 @@ export default function MeuPainel({ casas, metaDiaria }) {
                     <button className="btn-danger" onClick={() => handleRemove(cpa.id, cpa.player)}>✕</button>
                   </div>
                 </div>
-
                 {isEditing && (
                   <div className="cpa-edit-row" style={{ flexDirection: 'column', gap: 12 }}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -499,16 +460,8 @@ export default function MeuPainel({ casas, metaDiaria }) {
       )}
 
       {temMais && (
-        <button
-          onClick={() => setPagina(p => p + 20)}
-          style={{
-            width: '100%', marginTop: 12, padding: '12px',
-            background: 'var(--glass-bg)', backdropFilter: 'blur(12px)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: 10, color: 'var(--text)', cursor: 'pointer',
-            fontSize: 14, fontWeight: 600
-          }}
-        >
+        <button onClick={() => setPagina(p => p + 20)}
+          style={{ width: '100%', marginTop: 12, padding: '12px', background: 'var(--glass-bg)', backdropFilter: 'blur(12px)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
           Carregar mais ({filteredCPAs.length - pagina} restantes)
         </button>
       )}

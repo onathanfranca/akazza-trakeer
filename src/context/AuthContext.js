@@ -15,8 +15,6 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-
-
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -26,13 +24,14 @@ export function AuthProvider({ children }) {
     return signInWithEmailAndPassword(auth, email, password);
   }
 
-  async function register(email, password, nome) {
+  async function register(email, password, nome, tenantId) {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await setDoc(doc(db, 'users', cred.user.uid), {
       uid: cred.user.uid,
       nome,
       email,
       role: 'afiliado',
+      tenantId: tenantId || 'akazza-master',
       foto: null,
       createdAt: serverTimestamp(),
     });
@@ -69,6 +68,10 @@ export function AuthProvider({ children }) {
     return unsub;
   }, []);
 
+  const isSuperAdmin = userProfile?.role === 'superadmin';
+  const isAdmin = userProfile?.role === 'admin' || isSuperAdmin;
+  const tenantId = userProfile?.tenantId || 'akazza-master';
+
   const value = {
     currentUser,
     userProfile,
@@ -77,7 +80,9 @@ export function AuthProvider({ children }) {
     logout,
     fetchUserProfile,
     updateProfile,
-    isAdmin: userProfile?.role === 'admin',
+    isAdmin,
+    isSuperAdmin,
+    tenantId,
   };
 
   return (
