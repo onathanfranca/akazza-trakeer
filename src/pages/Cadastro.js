@@ -1,8 +1,18 @@
 // src/pages/Cadastro.js
 import React, { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
+
+function gerarTenantId(nome) {
+  return nome
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    + '-' + Math.random().toString(36).slice(2, 7);
+}
 
 export default function Cadastro() {
   const [email, setEmail] = useState('');
@@ -13,7 +23,7 @@ export default function Cadastro() {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
-  const [modo, setModo] = useState('admin'); // 'admin' ou 'afiliado'
+  const [modo, setModo] = useState('admin'); // 'admin' | 'afiliado' | 'novo'
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -22,8 +32,10 @@ export default function Cadastro() {
     if (emailParam) setEmail(decodeURIComponent(emailParam));
     if (tenantParam) {
       setTenantId(tenantParam);
-      // Se veio tenant mas não email = convite de afiliado
       if (!emailParam) setModo('afiliado');
+    } else if (!emailParam) {
+      // Veio da landing sem nenhum parâmetro
+      setModo('novo');
     }
   }, []);
 
@@ -38,7 +50,37 @@ export default function Cadastro() {
     try {
       let resolvedTenantId = tenantId;
 
-      // Se for admin e não tiver tenantId, busca pelo email
+      if (modo === 'novo') {
+        // Novo cliente vindo da landing — cria tenant pendente
+        resolvedTenantId = gerarTenantId(nome);
+        const cred = await createUserWithEmailAndPassword(auth, email.trim(), senha);
+
+        await setDoc(doc(db, 'tenants', resolvedTenantId), {
+          tenantId: resolvedTenantId,
+          nome: nome.trim(),
+          email: email.trim().toLowerCase(),
+          adminUid: cred.user.uid,
+          adminNome: nome.trim(),
+          plano: 'pendente',
+          status: 'ativo',
+          createdAt: serverTimestamp(),
+        });
+
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          uid: cred.user.uid,
+          nome: nome.trim(),
+          email: email.trim().toLowerCase(),
+          role: 'admin',
+          tenantId: resolvedTenantId,
+          foto: null,
+          createdAt: serverTimestamp(),
+        });
+
+        setSucesso(true);
+        setLoading(false);
+        return;
+      }
+
       if (modo === 'admin' && !resolvedTenantId) {
         const tenantsSnap = await getDocs(
           query(collection(db, 'tenants'), where('email', '==', email.toLowerCase().trim()))
@@ -67,6 +109,7 @@ export default function Cadastro() {
       });
 
       if (modo === 'admin') {
+        const { updateDoc } = await import('firebase/firestore');
         await updateDoc(doc(db, 'tenants', resolvedTenantId), {
           adminUid: cred.user.uid,
           adminNome: nome.trim(),
@@ -88,6 +131,65 @@ export default function Cadastro() {
     setLoading(false);
   }
 
+  // Tela de sucesso para novo cliente (veio da landing)
+  if (sucesso && modo === 'novo') {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#0a0a0a', padding: '2rem', textAlign: 'center',
+        fontFamily: 'DM Sans, sans-serif',
+      }}>
+        <div style={{
+          width: '100%', maxWidth: 420,
+          background: '#111', border: '1px solid rgba(201,168,76,0.28)',
+          borderRadius: 20, padding: '2.5rem', position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #C9A84C, transparent)' }} />
+
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+          <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 32, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>
+            CONTA CRIADA!
+          </div>
+          <div style={{ color: '#888880', fontSize: 15, marginBottom: 8, lineHeight: 1.6 }}>
+            Falta só um passo, <strong style={{ color: '#f0ede6' }}>{nome.trim()}</strong>.
+          </div>
+          <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
+            Assine o plano abaixo para ativar seu acesso. Depois da confirmação do pagamento, você já entra no painel.
+          </div>
+
+          <a
+            href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ"
+            style={{
+              display: 'block', width: '100%', textAlign: 'center',
+              background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none',
+              fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.1rem',
+              letterSpacing: '0.08em', padding: '16px', borderRadius: 8,
+              marginBottom: 12, transition: 'background 0.2s',
+            }}
+          >
+            ASSINAR POR R$ 67,90/MÊS
+          </a>
+
+          <div style={{ fontSize: 12, color: '#444440' }}>
+            Pagamento seguro via Lowify
+          </div>
+
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#555550' }}>
+            Já assinou?{' '}
+            <span
+              onClick={() => window.location.href = '/'}
+              style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}
+            >
+              Entrar no app
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Tela de sucesso para afiliado ou admin via link
   if (sucesso) {
     return (
       <div style={{
@@ -122,7 +224,11 @@ export default function Cadastro() {
             ⚡ AKAZZA <span style={{ color: 'var(--text)' }}>TRACKER</span>
           </div>
           <div style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 8 }}>
-            {modo === 'afiliado' ? 'Você foi convidado! Crie sua conta para começar.' : 'Crie sua conta e comece a rastrear'}
+            {modo === 'afiliado'
+              ? 'Você foi convidado! Crie sua conta para começar.'
+              : modo === 'novo'
+              ? 'Crie sua conta e assine para começar.'
+              : 'Crie sua conta e comece a rastrear'}
           </div>
         </div>
 
@@ -135,7 +241,7 @@ export default function Cadastro() {
 
           <div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>
-              {modo === 'afiliado' ? 'SEU EMAIL' : 'EMAIL DA COMPRA'}
+              {modo === 'afiliado' ? 'SEU EMAIL' : 'EMAIL'}
             </div>
             <input className="input-field" type="email"
               value={email} onChange={e => setEmail(e.target.value)}
