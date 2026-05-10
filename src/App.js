@@ -196,7 +196,6 @@ function AppInner() {
   );
 }
 
-// Admin que ainda não assinou
 function AssinaturaScreen() {
   const { logout, userProfile } = useAuth();
   return (
@@ -212,11 +211,9 @@ function AssinaturaScreen() {
         borderRadius: 20, padding: '2.5rem', position: 'relative', overflow: 'hidden',
       }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #C9A84C, transparent)' }} />
-
         <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.4rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>
           ⚡ AKAZZA <span style={{ color: '#C9A84C' }}>TRACKER</span>
         </div>
-
         <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
         <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 28, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>
           CONTA CRIADA!
@@ -227,43 +224,30 @@ function AssinaturaScreen() {
         <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
           Assine o plano para ativar seu acesso. Assim que o pagamento for confirmado você já entra no painel.
         </div>
-
-        <a
-          href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ"
-          style={{
-            display: 'block', width: '100%', textAlign: 'center',
-            background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none',
-            fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.1rem',
-            letterSpacing: '0.08em', padding: '16px', borderRadius: 8,
-            marginBottom: 12,
-          }}
-        >
+        <a href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ" style={{
+          display: 'block', width: '100%', textAlign: 'center',
+          background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none',
+          fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.1rem',
+          letterSpacing: '0.08em', padding: '16px', borderRadius: 8, marginBottom: 12,
+        }}>
           ASSINAR POR R$ 67,90/MÊS
         </a>
-
         <div style={{ fontSize: 12, color: '#444440', marginBottom: 24 }}>
           Pagamento seguro via Lowify
         </div>
-
         <div style={{ paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#555550' }}>
           Já assinou e ainda aparece essa tela?{' '}
-          <span
-            onClick={() => window.location.reload()}
-            style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}
-          >
+          <span onClick={() => window.location.reload()} style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}>
             Atualizar
           </span>
           {' '}ou{' '}
-          <span onClick={logout} style={{ color: '#555550', cursor: 'pointer', textDecoration: 'underline' }}>
-            sair
-          </span>
+          <span onClick={logout} style={{ color: '#555550', cursor: 'pointer', textDecoration: 'underline' }}>sair</span>
         </div>
       </div>
     </div>
   );
 }
 
-// Assinatura expirada ou bloqueada pelo superadmin
 function BlockedScreen() {
   const { logout } = useAuth();
   return (
@@ -279,8 +263,7 @@ function BlockedScreen() {
       <div style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 320, marginBottom: 24 }}>
         Sua assinatura está inativa. Entre em contato com o administrador para reativar o acesso.
       </div>
-      <button onClick={logout}
-        style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--card)', border: '1.5px solid var(--border)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+      <button onClick={logout} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--card)', border: '1.5px solid var(--border)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
         Sair
       </button>
     </div>
@@ -288,29 +271,23 @@ function BlockedScreen() {
 }
 
 function AppGate() {
-  const { currentUser, userProfile, tenantData, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
-  const path = window.location.pathname;
-
-  if (path === '/cadastro') return <Cadastro />;
-  if (path === '/landing') return <Landing />;
+  const { currentUser, userProfile, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
 
   if (!currentUser) return <AuthPage />;
-
-  // Superadmin nunca é bloqueado
   if (isSuperAdmin) return <AppInner />;
-
   if (!tenantAtivo) {
-    // Admin sem plano ativo — mostra tela de assinar
-    // Isso cobre: plano 'pendente', plano null, tenant não encontrado
     if (isAdmin) return <AssinaturaScreen />;
-    // Afiliado de tenant inativo — bloqueio genérico
     return <BlockedScreen />;
   }
-
   return <AppInner />;
 }
 
-export default function App() {
+// Rotas públicas ficam FORA do AuthProvider para carregar instantaneamente
+function RootRouter() {
+  const path = window.location.pathname;
+  if (path === '/landing') return <Landing />;
+  if (path === '/cadastro') return <Cadastro />;
+
   return (
     <AuthProvider>
       <ToastProvider>
@@ -318,4 +295,8 @@ export default function App() {
       </ToastProvider>
     </AuthProvider>
   );
+}
+
+export default function App() {
+  return <RootRouter />;
 }
