@@ -18,6 +18,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
+  const [tenantData, setTenantData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   async function login(email, password) {
@@ -41,12 +42,22 @@ export function AuthProvider({ children }) {
   async function logout() {
     await signOut(auth);
     setUserProfile(null);
+    setTenantData(null);
   }
 
   async function fetchUserProfile(uid) {
     const snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists()) {
-      setUserProfile(snap.data());
+      const profile = snap.data();
+      setUserProfile(profile);
+
+      // Busca o tenant — superadmin não precisa de tenant ativo
+      if (profile.role !== 'superadmin' && profile.tenantId) {
+        const tenantSnap = await getDoc(doc(db, 'tenants', profile.tenantId));
+        if (tenantSnap.exists()) {
+          setTenantData(tenantSnap.data());
+        }
+      }
     }
   }
 
@@ -62,6 +73,7 @@ export function AuthProvider({ children }) {
         await fetchUserProfile(user.uid);
       } else {
         setUserProfile(null);
+        setTenantData(null);
       }
       setLoading(false);
     });
@@ -71,10 +83,12 @@ export function AuthProvider({ children }) {
   const isSuperAdmin = userProfile?.role === 'superadmin';
   const isAdmin = userProfile?.role === 'admin' || isSuperAdmin;
   const tenantId = userProfile?.tenantId || 'akazza-master';
+  const tenantAtivo = isSuperAdmin || tenantData?.plano === 'ativo';
 
   const value = {
     currentUser,
     userProfile,
+    tenantData,
     login,
     register,
     logout,
@@ -83,6 +97,7 @@ export function AuthProvider({ children }) {
     isAdmin,
     isSuperAdmin,
     tenantId,
+    tenantAtivo,
   };
 
   return (
