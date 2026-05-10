@@ -7,8 +7,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { getToken } from 'firebase/messaging';
-import { auth, db, messaging } from '../firebase/config';
+import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();
 
@@ -16,25 +15,7 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-const VAPID_KEY = 'BD6RomUBC_I5iAThDYxdltmk3h567mCOin0Cf4FnqCkhspUUE7b79zKsf9rxy3GcVUExErn3soIHKslep4YT4YU';
 
-async function registerFCMToken(uid) {
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return;
-
-    const token = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js'),
-    });
-
-    if (token) {
-      await updateDoc(doc(db, 'users', uid), { fcmToken: token });
-    }
-  } catch (e) {
-    console.warn('FCM token error:', e);
-  }
-}
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -80,8 +61,6 @@ export function AuthProvider({ children }) {
       setCurrentUser(user);
       if (user) {
         await fetchUserProfile(user.uid);
-        // Registra token FCM após login
-        await registerFCMToken(user.uid);
       } else {
         setUserProfile(null);
       }

@@ -58,13 +58,17 @@ function AppInner() {
   const { notify } = useNotifications();
 
   const [tab, setTab] = useState(isAdmin ? 'admin' : 'meu');
-  const [dark, setDark] = useState(true);
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem('akazza_dark_mode');
+    return saved !== null ? saved === 'true' : true;
+  });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const pendentesCount = usePendentesCount(isAdmin);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    localStorage.setItem('akazza_dark_mode', String(dark));
   }, [dark]);
 
   useEffect(() => {
