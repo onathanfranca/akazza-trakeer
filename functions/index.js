@@ -8,7 +8,6 @@ const http = require("http");
 
 initializeApp();
 
-// ─── Helper: dispara Pushcut via HTTP ────────────────────────────────────────
 function dispararPushcut(webhookUrl, title, text) {
   return new Promise((resolve) => {
     if (!webhookUrl) return resolve();
@@ -58,14 +57,11 @@ exports.lowifyWebhook = onRequest({ cors: true }, async (req, res) => {
   const email = customer.email.toLowerCase().trim();
   const nome = customer.name || "Cliente";
 
-  // ── sale.paid: cria ou ativa tenant ──
   if (event === "sale.paid") {
     try {
-      // Verifica se já existe usuário com esse email
       const usersSnap = await db.collection("users").where("email", "==", email).get();
 
       if (!usersSnap.empty) {
-        // Usuário já existe — só ativa o tenant dele
         const user = usersSnap.docs[0].data();
         const tenantId = user.tenantId;
         if (tenantId) {
@@ -73,29 +69,39 @@ exports.lowifyWebhook = onRequest({ cors: true }, async (req, res) => {
           console.log(`Tenant ${tenantId} reativado para ${email}`);
         }
       } else {
-        // Novo cliente — cria tenant
-        const tenantId = email.split("@")[0].replace(/[^a-z0-9]/g, "") + "_" + Date.now();
+        // Gera tenantId limpo
+        const emailPrefix = email.split("@")[0].replace(/[^a-z0-9]/gi, "").toLowerCase();
+        const tenantId = `${emailPrefix}_${Date.now()}`;
 
+        // Cria tenant
         await db.collection("tenants").doc(tenantId).set({
           nome,
           email,
           saleId,
           plano: "ativo",
+          adminEmail: email,
+          adminNome: nome,
+          status: "aguardando_cadastro",
           criadoEm: FieldValue.serverTimestamp(),
         });
 
-        // Cria config padrão do tenant
+        // Cria config padrão
         await db.collection("config").doc(tenantId).set({
           metaDiaria: 50,
           aprovacaoAutomatica: true,
         });
 
-        // Cria usuário pendente (sem auth ainda — será criado no primeiro acesso)
-        await db.collection("tenants").doc(tenantId).update({
-          adminEmail: email,
-          adminNome: nome,
-          status: "aguardando_cadastro",
-        });
+        // Cria Superbet padrão pro novo tenant
+const novaCasaId = `superbet_${tenantId}`;
+await db.collection("casas").doc(novaCasaId).set({
+  nome: "Superbet",
+  tenantId,
+  valorAdmin: 0,
+  custoAdmin: 0,
+  valorAfiliado: 0,
+  custoAfiliado: 0,
+  link: "",
+});
 
         console.log(`Novo tenant criado: ${tenantId} para ${email}`);
       }
@@ -107,7 +113,6 @@ exports.lowifyWebhook = onRequest({ cors: true }, async (req, res) => {
     }
   }
 
-  // ── sale.refund: desativa tenant ──
   if (event === "sale.refund") {
     try {
       const usersSnap = await db.collection("users").where("email", "==", email).get();
@@ -126,7 +131,6 @@ exports.lowifyWebhook = onRequest({ cors: true }, async (req, res) => {
     }
   }
 
-  // ── sale.pending: ignora ──
   if (event === "sale.pending") {
     console.log(`sale.pending ignorado para ${email}`);
     return res.status(200).json({ ok: true, event, message: "Aguardando pagamento" });
@@ -158,7 +162,6 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
     if (casaSnap.exists) casaData = casaSnap.data();
   }
 
-  // Busca admins do mesmo tenant
   const usersSnap = await db.collection("users").where("tenantId", "==", tenantId).get();
   const admins = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === "admin" || u.role === "superadmin");
 

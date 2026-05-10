@@ -1,10 +1,12 @@
 // src/pages/Gerenciar.js
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import AfiliadoPerfil from './AfiliadoPerfil';
 
 export default function Gerenciar({ users, updateRole, removeUser, casas, saveCasa, addCasa, removeCasa }) {
   const { showToast } = useToast();
+  const { tenantId } = useAuth();
   const [newCasa, setNewCasa] = useState('');
   const [newValorAdmin, setNewValorAdmin] = useState('');
   const [newCustoAdmin, setNewCustoAdmin] = useState('');
@@ -14,6 +16,13 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
   const [localCasas, setLocalCasas] = useState({});
   const [saving, setSaving] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const linkConvite = `https://akazzatracker.vercel.app/cadastro?tenant=${tenantId}`;
+
+  function copiarLink() {
+    navigator.clipboard.writeText(linkConvite);
+    showToast('✅ Link copiado!', 'green');
+  }
 
   function getVal(id, field, fallback) {
     return localCasas[id]?.[field] !== undefined ? localCasas[id][field] : (fallback ?? '');
@@ -75,13 +84,38 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
         <AfiliadoPerfil user={selectedUser} casas={casas} onClose={() => setSelectedUser(null)} />
       )}
 
+      {/* Link de convite */}
+      <div className="manage-box" style={{ borderColor: 'rgba(201,168,76,0.3)' }}>
+        <div className="manage-title">🔗 Convidar Afiliado</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+          Compartilhe esse link com seus afiliados para que eles criem a conta diretamente no seu painel.
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{
+            flex: 1, minWidth: 200, padding: '10px 14px', borderRadius: 8,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            fontSize: 12, color: 'var(--text-muted)', wordBreak: 'break-all'
+          }}>
+            {linkConvite}
+          </div>
+          <button onClick={copiarLink}
+            style={{
+              padding: '10px 18px', borderRadius: 8, background: 'var(--accent)',
+              border: 'none', color: '#000', cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap'
+            }}>
+            📋 Copiar link
+          </button>
+        </div>
+      </div>
+
       {/* Users */}
       <div className="manage-box">
         <div className="manage-title">Usuários cadastrados</div>
         {users.length === 0 ? (
           <div className="empty" style={{ padding: '20px 0' }}>Nenhum usuário.</div>
         ) : users.map(u => (
-          <div className="user-row" key={u.id} style={{ flexWrap: 'wrap', gap: 10 }}>
+          <div className="user-row" key={u.uid} style={{ flexWrap: 'wrap', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 160 }}
               onClick={() => setSelectedUser(u)} title="Ver perfil completo">
               {u.foto ? (
@@ -115,7 +149,6 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
           <span style={{ color: 'var(--accent)', fontSize: 10, marginLeft: 8 }}>🔒 ADMIN ONLY</span>
         </div>
 
-        {/* Legenda */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 85px) 1fr 32px', gap: 6, marginBottom: 6, padding: '0 4px' }}>
           <div />
           <div style={{ fontSize: 10, color: 'var(--accent)', textAlign: 'center' }}>Val. Admin</div>
@@ -149,7 +182,6 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
           </div>
         ))}
 
-        {/* Nova casa */}
         <div style={{ marginTop: 16, padding: '12px', background: 'var(--card)', borderRadius: 10, border: '1px solid var(--border)' }}>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>➕ Nova casa</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
