@@ -119,36 +119,24 @@ function AppInner() {
 
   return (
     <div className="app-layout">
-
-      <div
-        className={`drawer-overlay${drawerOpen ? ' open' : ''}`}
-        onClick={() => setDrawerOpen(false)}
-      />
+      <div className={`drawer-overlay${drawerOpen ? ' open' : ''}`} onClick={() => setDrawerOpen(false)} />
 
       <nav className={`drawer${drawerOpen ? ' open' : ''}`}>
         <div className="drawer-header">
           <div className="drawer-logo">⚡ AKAZZA <span>TRACKER</span></div>
           <button className="drawer-close" onClick={() => setDrawerOpen(false)}>✕</button>
         </div>
-
         <div className="drawer-nav">
           {tabs.map(t => {
             const isPendingTab = t.id === 'aprovacoes' && isAdmin && pendentesCount > 0;
             return (
-              <button
-                key={t.id}
-                className={`drawer-tab${tab === t.id ? ' active' : ''}`}
-                onClick={() => goTab(t.id)}
-              >
+              <button key={t.id} className={`drawer-tab${tab === t.id ? ' active' : ''}`} onClick={() => goTab(t.id)}>
                 {t.label}
-                {isPendingTab && (
-                  <span className="drawer-tab-badge">{pendentesCount}</span>
-                )}
+                {isPendingTab && <span className="drawer-tab-badge">{pendentesCount}</span>}
               </button>
             );
           })}
         </div>
-
         <div className="drawer-footer">
           <div className="drawer-user">
             <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={36} />
@@ -173,71 +161,32 @@ function AppInner() {
           <span className="menu-toggle-bar" />
           <span className="menu-toggle-bar" />
           <span className="menu-toggle-bar" />
-          {isAdmin && pendentesCount > 0 && (
-            <span className="menu-toggle-badge">{pendentesCount}</span>
-          )}
+          {isAdmin && pendentesCount > 0 && <span className="menu-toggle-badge">{pendentesCount}</span>}
         </button>
-
         <div className="logo" onClick={() => goTab(isAdmin ? 'admin' : 'meu')} style={{ flex: 1, textAlign: 'center' }}>
           ⚡ AKAZZA <span>TRACKER</span>
         </div>
-
         <div className="header-right" style={{ flexWrap: 'nowrap' }}>
           <div style={{ cursor: 'pointer' }} onClick={() => goTab('perfil')} title="Meu Perfil">
             <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={34} />
           </div>
-          {isSuperAdmin && (
-            <span className="admin-pill" style={{ whiteSpace: 'nowrap', background: 'var(--accent)' }}>👑 SUPER</span>
-          )}
-          {isAdmin && !isSuperAdmin && (
-            <span className="admin-pill" style={{ whiteSpace: 'nowrap' }}>ADMIN</span>
-          )}
-          <button className="btn-theme" onClick={() => setDark(d => !d)}>
-            {dark ? '☀️' : '🌙'}
-          </button>
+          {isSuperAdmin && <span className="admin-pill" style={{ whiteSpace: 'nowrap', background: 'var(--accent)' }}>👑 SUPER</span>}
+          {isAdmin && !isSuperAdmin && <span className="admin-pill" style={{ whiteSpace: 'nowrap' }}>ADMIN</span>}
+          <button className="btn-theme" onClick={() => setDark(d => !d)}>{dark ? '☀️' : '🌙'}</button>
         </div>
       </header>
 
       <main>
-        {tab === 'admin' && isAdmin && (
-          <AdminPainel
-            casas={casas}
-            users={users}
-            metaDiaria={config.metaDiaria}
-            config={config}
-            tenantId={tenantId}
-          />
-        )}
-        {tab === 'aprovacoes' && isAdmin && (
-          <Aprovacoes casas={casas} users={users} tenantId={tenantId} />
-        )}
-        {tab === 'ranking' && (
-          <Ranking casas={casas} users={users} tenantId={tenantId} />
-        )}
-        {tab === 'meu' && (
-          <MeuPainel casas={casas} metaDiaria={config.metaDiaria} tenantId={tenantId} />
-        )}
-        {tab === 'links' && (
-          <Links casas={casas} />
-        )}
-        {tab === 'gerenciar' && isAdmin && (
-          <Gerenciar
-            users={users} updateRole={updateRole} removeUser={removeUser}
-            casas={casas} saveCasa={saveCasa} addCasa={addCasa} removeCasa={removeCasa}
-          />
-        )}
-        {tab === 'config' && isAdmin && (
-          <Config config={config} saveConfig={saveConfig} />
-        )}
-        {tab === 'fechamento' && isAdmin && (
-          <Fechamento users={users} casas={casas} tenantId={tenantId} />
-        )}
-        {tab === 'meusfechamentos' && !isAdmin && (
-          <MeusFechamentos tenantId={tenantId} />
-        )}
-        {tab === 'perfil' && (
-          <Perfil />
-        )}
+        {tab === 'admin' && isAdmin && <AdminPainel casas={casas} users={users} metaDiaria={config.metaDiaria} config={config} tenantId={tenantId} />}
+        {tab === 'aprovacoes' && isAdmin && <Aprovacoes casas={casas} users={users} tenantId={tenantId} />}
+        {tab === 'ranking' && <Ranking casas={casas} users={users} tenantId={tenantId} />}
+        {tab === 'meu' && <MeuPainel casas={casas} metaDiaria={config.metaDiaria} tenantId={tenantId} />}
+        {tab === 'links' && <Links casas={casas} />}
+        {tab === 'gerenciar' && isAdmin && <Gerenciar users={users} updateRole={updateRole} removeUser={removeUser} casas={casas} saveCasa={saveCasa} addCasa={addCasa} removeCasa={removeCasa} />}
+        {tab === 'config' && isAdmin && <Config config={config} saveConfig={saveConfig} />}
+        {tab === 'fechamento' && isAdmin && <Fechamento users={users} casas={casas} tenantId={tenantId} />}
+        {tab === 'meusfechamentos' && !isAdmin && <MeusFechamentos tenantId={tenantId} />}
+        {tab === 'perfil' && <Perfil />}
         {tab === 'superadmin' && isSuperAdmin && (
           <div style={{ padding: '2rem', color: 'var(--text)' }}>
             <h2>🌐 Super Admin</h2>
@@ -247,36 +196,6 @@ function AppInner() {
       </main>
     </div>
   );
-}
-
-function BlockedScreen() {
-  const { logout } = useAuth();
-  return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg)', padding: '2rem', textAlign: 'center'
-    }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: 'var(--accent)', marginBottom: 8 }}>
-        ACESSO BLOQUEADO
-      </div>
-      <div style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 320, marginBottom: 24 }}>
-        Sua assinatura está inativa. Entre em contato com o administrador para reativar o acesso.
-      </div>
-      <button onClick={logout}
-        style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--card)', border: '1.5px solid var(--border)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
-        Sair
-      </button>
-    </div>
-  );
-}
-
-function AppGate() {
-  const { currentUser, tenantAtivo } = useAuth();
-  if (!currentUser) return <AuthPage />;
-  if (tenantAtivo === false) return <BlockedScreen />;
-  return <AppInner />;
 }
 
 function BlockedScreen() {
