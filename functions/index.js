@@ -1,7 +1,8 @@
 // functions/index.js
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onRequest } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const https = require("https");
 const http = require("http");
 
@@ -38,6 +39,102 @@ function fmtBRL(n) {
   return `R$ ${Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 }
 
+// ─── Webhook Lowify ───────────────────────────────────────────────────────────
+exports.lowifyWebhook = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+
+  const payload = req.body;
+  const event = payload?.event;
+  const saleId = payload?.sale_id;
+  const customer = payload?.customer;
+
+  console.log(`Lowify webhook recebido: ${event} — ${saleId}`);
+
+  if (!event || !customer?.email) {
+    return res.status(400).json({ error: "Payload inválido" });
+  }
+
+  const db = getFirestore();
+  const email = customer.email.toLowerCase().trim();
+  const nome = customer.name || "Cliente";
+
+  // ── sale.paid: cria ou ativa tenant ──
+  if (event === "sale.paid") {
+    try {
+      // Verifica se já existe usuário com esse email
+      const usersSnap = await db.collection("users").where("email", "==", email).get();
+
+      if (!usersSnap.empty) {
+        // Usuário já existe — só ativa o tenant dele
+        const user = usersSnap.docs[0].data();
+        const tenantId = user.tenantId;
+        if (tenantId) {
+          await db.collection("tenants").doc(tenantId).update({ plano: "ativo" });
+          console.log(`Tenant ${tenantId} reativado para ${email}`);
+        }
+      } else {
+        // Novo cliente — cria tenant
+        const tenantId = email.split("@")[0].replace(/[^a-z0-9]/g, "") + "_" + Date.now();
+
+        await db.collection("tenants").doc(tenantId).set({
+          nome,
+          email,
+          saleId,
+          plano: "ativo",
+          criadoEm: FieldValue.serverTimestamp(),
+        });
+
+        // Cria config padrão do tenant
+        await db.collection("config").doc(tenantId).set({
+          metaDiaria: 50,
+          aprovacaoAutomatica: true,
+        });
+
+        // Cria usuário pendente (sem auth ainda — será criado no primeiro acesso)
+        await db.collection("tenants").doc(tenantId).update({
+          adminEmail: email,
+          adminNome: nome,
+          status: "aguardando_cadastro",
+        });
+
+        console.log(`Novo tenant criado: ${tenantId} para ${email}`);
+      }
+
+      return res.status(200).json({ ok: true, event });
+    } catch (e) {
+      console.error("Erro ao processar sale.paid:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // ── sale.refund: desativa tenant ──
+  if (event === "sale.refund") {
+    try {
+      const usersSnap = await db.collection("users").where("email", "==", email).get();
+      if (!usersSnap.empty) {
+        const user = usersSnap.docs[0].data();
+        const tenantId = user.tenantId;
+        if (tenantId) {
+          await db.collection("tenants").doc(tenantId).update({ plano: "inativo" });
+          console.log(`Tenant ${tenantId} desativado por refund — ${email}`);
+        }
+      }
+      return res.status(200).json({ ok: true, event });
+    } catch (e) {
+      console.error("Erro ao processar sale.refund:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // ── sale.pending: ignora ──
+  if (event === "sale.pending") {
+    console.log(`sale.pending ignorado para ${email}`);
+    return res.status(200).json({ ok: true, event, message: "Aguardando pagamento" });
+  }
+
+  return res.status(200).json({ ok: true, event: "ignored" });
+});
+
 // ─── Notifica novo CPA registrado ────────────────────────────────────────────
 exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
   const cpa = event.data.data();
@@ -47,6 +144,7 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
   const uid = cpa.uid;
   const casaNome = cpa.casa || "";
   const status = cpa.status || "pendente";
+  const tenantId = cpa.tenantId;
 
   const ownerSnap = await db.collection("users").doc(uid).get();
   const owner = ownerSnap.data();
@@ -60,8 +158,9 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
     if (casaSnap.exists) casaData = casaSnap.data();
   }
 
-  const usersSnap = await db.collection("users").get();
-  const admins = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === "admin");
+  // Busca admins do mesmo tenant
+  const usersSnap = await db.collection("users").where("tenantId", "==", tenantId).get();
+  const admins = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === "admin" || u.role === "superadmin");
 
   const valorAdmin = casaData ? (casaData.valorAdmin ?? casaData.valor ?? 0) : 0;
   const valorAfiliado = casaData ? (casaData.valorAfiliado ?? casaData.valor ?? 0) : 0;
@@ -70,8 +169,7 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
 
   const pushcutPromises = [];
 
-  // ── CASO 1: Admin registra CPA próprio ──
-  if (ownerRole === "admin") {
+  if (ownerRole === "admin" || ownerRole === "superadmin") {
     const liquido = valorAdmin - valorDeposito;
     const title = "+1 CPA REGISTRADO ✅";
     const text = liquido > 0 ? `+${fmtBRL(liquido)} pra conta! 💰` : `Casa: ${casaNome || "—"}`;
@@ -80,7 +178,6 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
     return;
   }
 
-  // ── CASO 2: Afiliado — aprovação automática ──
   if (status === "aprovado") {
     const valorCPA = cpa.valorCPA != null ? Number(cpa.valorCPA) : valorAfiliado;
     const liquidoDono = valorCPA - valorDeposito;
@@ -100,7 +197,6 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
     return;
   }
 
-  // ── CASO 3: Afiliado — aprovação manual (pendente) — só avisa admins ──
   const titlePendente = `${nomeAfiliado} REGISTROU CPA ⏳`;
   const textPendente = `⏳ Aguardando aprovação — Casa: ${casaNome || "—"}`;
   for (const admin of admins) {
@@ -109,7 +205,7 @@ exports.notificarNovoCPA = onDocumentCreated("cpas/{cpaId}", async (event) => {
   await Promise.all(pushcutPromises);
 });
 
-// ─── Notifica mudança de status (aprovação/rejeição MANUAL) ──────────────────
+// ─── Notifica mudança de status ───────────────────────────────────────────────
 exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => {
   const antes = event.data.before.data();
   const depois = event.data.after.data();
@@ -123,6 +219,7 @@ exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => 
   const db = getFirestore();
   const uid = depois.uid;
   const casaNome = depois.casa || "";
+  const tenantId = depois.tenantId;
 
   const userSnap = await db.collection("users").doc(uid).get();
   const user = userSnap.data();
@@ -136,8 +233,8 @@ exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => 
     if (casaSnap.exists) casaData = casaSnap.data();
   }
 
-  const usersSnap = await db.collection("users").get();
-  const admins = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === "admin");
+  const usersSnap = await db.collection("users").where("tenantId", "==", tenantId).get();
+  const admins = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === "admin" || u.role === "superadmin");
 
   const valorAdmin = casaData ? (casaData.valorAdmin ?? casaData.valor ?? 0) : 0;
   const valorAfiliado = casaData ? (casaData.valorAfiliado ?? casaData.valor ?? 0) : 0;
@@ -160,7 +257,6 @@ exports.notificarStatusCPA = onDocumentUpdated("cpas/{cpaId}", async (event) => 
     for (const admin of admins) {
       if (admin.pushcutUrl) pushcutPromises.push(dispararPushcut(admin.pushcutUrl, titleAdmin, textAdmin));
     }
-
   } else {
     const motivo = depois.motivoRejeicao ? ` — ${depois.motivoRejeicao}` : "";
     const titleDono = "CPA REJEITADO ❌";

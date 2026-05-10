@@ -1,4 +1,5 @@
 // src/App.js
+import Cadastro from './pages/Cadastro';
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -219,6 +220,10 @@ function BlockedScreen() {
 
 function AppGate() {
   const { currentUser, tenantAtivo } = useAuth();
+
+  // Detecta página de cadastro
+  if (window.location.pathname === '/cadastro') return <Cadastro />;
+
   if (!currentUser) return <AuthPage />;
   if (tenantAtivo === false) return <BlockedScreen />;
   return <AppInner />;
