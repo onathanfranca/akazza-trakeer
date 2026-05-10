@@ -46,18 +46,33 @@ export function AuthProvider({ children }) {
   }
 
   async function fetchUserProfile(uid) {
-    const snap = await getDoc(doc(db, 'users', uid));
-    if (snap.exists()) {
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (!snap.exists()) return;
+
       const profile = snap.data();
       setUserProfile(profile);
 
-      // Busca o tenant — superadmin não precisa de tenant ativo
-      if (profile.role !== 'superadmin' && profile.tenantId) {
-        const tenantSnap = await getDoc(doc(db, 'tenants', profile.tenantId));
-        if (tenantSnap.exists()) {
-          setTenantData(tenantSnap.data());
+      if (profile.role === 'superadmin') return;
+
+      if (profile.tenantId) {
+        try {
+          const tenantSnap = await getDoc(doc(db, 'tenants', profile.tenantId));
+          if (tenantSnap.exists()) {
+            setTenantData(tenantSnap.data());
+          } else {
+            // Tenant não encontrado — trata como pendente
+            setTenantData({ plano: 'pendente' });
+          }
+        } catch (tenantErr) {
+          console.warn('Erro ao buscar tenant:', tenantErr);
+          // Se não conseguiu ler o tenant, trata como pendente
+          setTenantData({ plano: 'pendente' });
         }
       }
+    } catch (err) {
+      console.error('Erro ao buscar perfil:', err);
+      // Não travar a tela — deixa userProfile null e loading resolve
     }
   }
 
