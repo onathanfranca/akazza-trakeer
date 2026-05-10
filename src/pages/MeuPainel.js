@@ -26,6 +26,13 @@ function previewImagem(file) {
   });
 }
 
+const STATUS_FILTROS = [
+  { key: 'todos',     label: 'Todos' },
+  { key: 'aprovado',  label: '✅ Aprovados' },
+  { key: 'pendente',  label: '⏳ Pendentes' },
+  { key: 'rejeitado', label: '❌ Rejeitados' },
+];
+
 export default function MeuPainel({ casas, metaDiaria }) {
   const { currentUser, userProfile, isAdmin } = useAuth();
   const { showCPAToast, showToast } = useToast();
@@ -44,6 +51,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const [adding, setAdding] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [filterCasa, setFilterCasa] = useState('Todas');
+  const [filterStatus, setFilterStatus] = useState('todos'); // ← novo
   const [editingId, setEditingId] = useState(null);
   const [editNome, setEditNome] = useState('');
   const [editCasaVal, setEditCasaVal] = useState('');
@@ -54,10 +62,27 @@ export default function MeuPainel({ casas, metaDiaria }) {
   const fileRef = useRef();
   const editFileRef = useRef();
 
+  // Contadores por status (sobre todos os CPAs do período, sem filtro de casa)
+  const statusCount = useMemo(() => {
+    const counts = { aprovado: 0, pendente: 0, rejeitado: 0 };
+    cpas.forEach(c => {
+      const s = c.status || 'aprovado';
+      if (counts[s] !== undefined) counts[s]++;
+    });
+    return counts;
+  }, [cpas]);
+
   const filteredCPAs = useMemo(() => {
     setPagina(20);
-    return filterCasa === 'Todas' ? cpas : cpas.filter(c => c.casa === filterCasa);
-  }, [cpas, filterCasa]);
+    return cpas.filter(c => {
+      if (filterCasa !== 'Todas' && c.casa !== filterCasa) return false;
+      if (filterStatus !== 'todos') {
+        const s = c.status || 'aprovado';
+        if (s !== filterStatus) return false;
+      }
+      return true;
+    });
+  }, [cpas, filterCasa, filterStatus]);
 
   const cpasPaginados = filteredCPAs.slice(0, pagina);
   const temMais = filteredCPAs.length > pagina;
@@ -220,7 +245,7 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </div>
       )}
 
-      {/* ── GRÁFICO PRIMEIRO ── */}
+      {/* Gráfico */}
       <CPAChart
         cpas={cpas}
         dateFrom={applied.from}
@@ -325,10 +350,55 @@ export default function MeuPainel({ casas, metaDiaria }) {
         </button>
       </div>
 
+      {/* Filtro por casa */}
       <div className="chips">
         {['Todas', ...casas.map(c => c.nome)].map(nome => (
           <div key={nome} className={`chip${filterCasa === nome ? ' active' : ''}`} onClick={() => setFilterCasa(nome)}>{nome}</div>
         ))}
+      </div>
+
+      {/* ── Filtro por status ── */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, marginTop: 4 }}>
+        {STATUS_FILTROS.map(f => {
+          const count = f.key === 'todos' ? cpas.length : statusCount[f.key] ?? 0;
+          const isActive = filterStatus === f.key;
+          const borderColor = isActive
+            ? f.key === 'aprovado' ? 'var(--green)'
+            : f.key === 'pendente' ? '#f59e0b'
+            : f.key === 'rejeitado' ? 'var(--red)'
+            : 'var(--accent)'
+            : 'var(--border)';
+          const bgColor = isActive
+            ? f.key === 'aprovado' ? 'rgba(26,170,110,0.12)'
+            : f.key === 'pendente' ? 'rgba(245,158,11,0.12)'
+            : f.key === 'rejeitado' ? 'rgba(229,57,53,0.12)'
+            : 'var(--glass-bg)'
+            : 'var(--card)';
+          return (
+            <button
+              key={f.key}
+              onClick={() => setFilterStatus(f.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                border: `1.5px solid ${borderColor}`,
+                background: bgColor,
+                color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                cursor: 'pointer', transition: 'all .15s',
+              }}
+            >
+              {f.label}
+              <span style={{
+                background: isActive ? borderColor : 'var(--surface)',
+                color: isActive ? (f.key === 'pendente' ? '#000' : f.key === 'todos' ? '#000' : '#fff') : 'var(--text-muted)',
+                fontSize: 10, fontWeight: 700,
+                padding: '1px 6px', borderRadius: 99, minWidth: 18, textAlign: 'center'
+              }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="section-title">📋 Histórico</div>
@@ -336,7 +406,10 @@ export default function MeuPainel({ casas, metaDiaria }) {
       {loading ? (
         <div className="loading-wrap"><div className="spinner" /><span className="loading-text">Carregando CPAs...</span></div>
       ) : filteredCPAs.length === 0 ? (
-        <div className="empty"><div className="empty-icon">📭</div>Nenhum CPA neste período.</div>
+        <div className="empty">
+          <div className="empty-icon">📭</div>
+          {filterStatus === 'todos' ? 'Nenhum CPA neste período.' : `Nenhum CPA ${filterStatus === 'aprovado' ? 'aprovado' : filterStatus === 'pendente' ? 'pendente' : 'rejeitado'} neste período.`}
+        </div>
       ) : (
         <div className="cpa-list">
           {cpasPaginados.map(cpa => {
