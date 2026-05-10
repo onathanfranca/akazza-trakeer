@@ -40,6 +40,11 @@ export default function AuthPage() {
     setLoading(false);
   }
 
+  function switchTab(t) {
+    setTab(t);
+    setError('');
+  }
+
   return (
     <div className="auth-wrap">
       <div className="auth-box">
@@ -47,10 +52,10 @@ export default function AuthPage() {
         <div className="auth-sub">SISTEMA DE RASTREAMENTO DE CPAs</div>
 
         <div className="auth-tabs">
-          <div className={`auth-tab${tab === 'login' ? ' active' : ''}`} onClick={() => { setTab('login'); setError(''); }}>
+          <div className={`auth-tab${tab === 'login' ? ' active' : ''}`} onClick={() => switchTab('login')}>
             Entrar
           </div>
-          <div className={`auth-tab${tab === 'register' ? ' active' : ''}`} onClick={() => { setTab('register'); setError(''); }}>
+          <div className={`auth-tab${tab === 'register' ? ' active' : ''}`} onClick={() => switchTab('register')}>
             Cadastrar
           </div>
         </div>
@@ -97,6 +102,31 @@ export default function AuthPage() {
             {loading ? 'Aguarde...' : tab === 'login' ? 'Entrar' : 'Cadastrar'}
           </button>
         </form>
+
+        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '14px', color: 'var(--text-muted, #aaa)' }}>
+          {tab === 'login' ? (
+            <>
+              Não tem conta?{' '}
+              <span
+                onClick={() => switchTab('register')}
+                style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Criar conta
+              </span>
+            </>
+          ) : (
+            <>
+              Já tem conta?{' '}
+              <span
+                onClick={() => switchTab('login')}
+                style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Entrar
+              </span>
+            </>
+          )}
+        </div>
+
       </div>
     </div>
   );
