@@ -279,38 +279,42 @@ function AppGate() {
   return <AppInner />;
 }
 
+function BlockedScreen() {
+  const { logout } = useAuth();
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: 'var(--bg)', padding: '2rem', textAlign: 'center'
+    }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: 'var(--accent)', marginBottom: 8 }}>
+        ACESSO BLOQUEADO
+      </div>
+      <div style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 320, marginBottom: 24 }}>
+        Sua assinatura está inativa. Entre em contato com o administrador para reativar o acesso.
+      </div>
+      <button onClick={logout}
+        style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--card)', border: '1.5px solid var(--border)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+        Sair
+      </button>
+    </div>
+  );
+}
+
 function AppGate() {
   const { currentUser, tenantAtivo } = useAuth();
-
   if (!currentUser) return <AuthPage />;
-
-  if (tenantAtivo === false) {
-    return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        background: 'var(--bg)', padding: '2rem', textAlign: 'center'
-      }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: 'var(--accent)', marginBottom: 8 }}>
-          ACESSO BLOQUEADO
-        </div>
-        <div style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 320, marginBottom: 24 }}>
-          Sua assinatura está inativa. Entre em contato com o administrador para reativar o acesso.
-        </div>
-        <button
-          onClick={() => useAuth().logout()}
-          style={{
-            padding: '10px 24px', borderRadius: 8, background: 'var(--card)',
-            border: '1.5px solid var(--border)', color: 'var(--text)',
-            cursor: 'pointer', fontSize: 14, fontWeight: 600
-          }}
-        >
-          Sair
-        </button>
-      </div>
-    );
-  }
-
+  if (tenantAtivo === false) return <BlockedScreen />;
   return <AppInner />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <ToastProvider>
+        <AppGate />
+      </ToastProvider>
+    </AuthProvider>
+  );
 }
