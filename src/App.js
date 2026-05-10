@@ -17,6 +17,7 @@ import Fechamento from './pages/Fechamento';
 import Aprovacoes from './pages/Aprovacoes';
 import Links from './pages/Links';
 import MeusFechamentos from './pages/MeusFechamentos';
+import SuperAdmin from './pages/SuperAdmin';
 
 import './styles/global.css';
 
@@ -187,12 +188,7 @@ function AppInner() {
         {tab === 'fechamento' && isAdmin && <Fechamento users={users} casas={casas} tenantId={tenantId} />}
         {tab === 'meusfechamentos' && !isAdmin && <MeusFechamentos tenantId={tenantId} />}
         {tab === 'perfil' && <Perfil />}
-        {tab === 'superadmin' && isSuperAdmin && (
-          <div style={{ padding: '2rem', color: 'var(--text)' }}>
-            <h2>🌐 Super Admin</h2>
-            <p style={{ color: 'var(--text-muted)' }}>Painel de tenants — em breve.</p>
-          </div>
-        )}
+        {tab === 'superadmin' && isSuperAdmin && <SuperAdmin />}
       </main>
     </div>
   );
