@@ -196,7 +196,7 @@ function AppInner() {
   );
 }
 
-// Tela para admin que criou conta mas ainda não assinou
+// Admin que ainda não assinou
 function AssinaturaScreen() {
   const { logout, userProfile } = useAuth();
   return (
@@ -213,7 +213,7 @@ function AssinaturaScreen() {
       }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #C9A84C, transparent)' }} />
 
-        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.5rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.4rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>
           ⚡ AKAZZA <span style={{ color: '#C9A84C' }}>TRACKER</span>
         </div>
 
@@ -254,7 +254,7 @@ function AssinaturaScreen() {
             Atualizar
           </span>
           {' '}ou{' '}
-          <span onClick={logout} style={{ color: '#555550', cursor: 'pointer' }}>
+          <span onClick={logout} style={{ color: '#555550', cursor: 'pointer', textDecoration: 'underline' }}>
             sair
           </span>
         </div>
@@ -263,7 +263,7 @@ function AssinaturaScreen() {
   );
 }
 
-// Tela para assinatura expirada (não é plano pendente, é bloqueio mesmo)
+// Assinatura expirada ou bloqueada pelo superadmin
 function BlockedScreen() {
   const { logout } = useAuth();
   return (
@@ -288,7 +288,7 @@ function BlockedScreen() {
 }
 
 function AppGate() {
-  const { currentUser, userProfile, tenantData, tenantAtivo } = useAuth();
+  const { currentUser, userProfile, tenantData, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
   const path = window.location.pathname;
 
   if (path === '/cadastro') return <Cadastro />;
@@ -296,10 +296,15 @@ function AppGate() {
 
   if (!currentUser) return <AuthPage />;
 
-  // Plano pendente = recém cadastrado, ainda não assinou
-  if (tenantAtivo === false) {
-    const isPendente = tenantData?.plano === 'pendente';
-    return isPendente ? <AssinaturaScreen /> : <BlockedScreen />;
+  // Superadmin nunca é bloqueado
+  if (isSuperAdmin) return <AppInner />;
+
+  if (!tenantAtivo) {
+    // Admin sem plano ativo — mostra tela de assinar
+    // Isso cobre: plano 'pendente', plano null, tenant não encontrado
+    if (isAdmin) return <AssinaturaScreen />;
+    // Afiliado de tenant inativo — bloqueio genérico
+    return <BlockedScreen />;
   }
 
   return <AppInner />;
