@@ -1,7 +1,7 @@
 // src/pages/Cadastro.js
 import React, { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 function gerarTenantId(nome) {
@@ -22,7 +22,6 @@ export default function Cadastro() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
-  const [sucesso, setSucesso] = useState(false);
   const [modo, setModo] = useState('admin'); // 'admin' | 'afiliado' | 'novo'
 
   useEffect(() => {
@@ -34,7 +33,6 @@ export default function Cadastro() {
       setTenantId(tenantParam);
       if (!emailParam) setModo('afiliado');
     } else if (!emailParam) {
-      // Veio da landing sem nenhum parâmetro
       setModo('novo');
     }
   }, []);
@@ -51,7 +49,7 @@ export default function Cadastro() {
       let resolvedTenantId = tenantId;
 
       if (modo === 'novo') {
-        // Novo cliente vindo da landing — cria tenant pendente
+        // Novo cliente da landing — cria tenant pendente e loga direto
         resolvedTenantId = gerarTenantId(nome);
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), senha);
 
@@ -76,8 +74,8 @@ export default function Cadastro() {
           createdAt: serverTimestamp(),
         });
 
-        setSucesso(true);
-        setLoading(false);
+        // Redireciona para / — o App vai detectar plano pendente e mostrar tela de assinar
+        window.location.href = '/';
         return;
       }
 
@@ -109,7 +107,6 @@ export default function Cadastro() {
       });
 
       if (modo === 'admin') {
-        const { updateDoc } = await import('firebase/firestore');
         await updateDoc(doc(db, 'tenants', resolvedTenantId), {
           adminUid: cred.user.uid,
           adminNome: nome.trim(),
@@ -117,7 +114,7 @@ export default function Cadastro() {
         });
       }
 
-      setSucesso(true);
+      window.location.href = '/';
     } catch (e) {
       console.error(e);
       if (e.code === 'auth/email-already-in-use') {
@@ -127,89 +124,8 @@ export default function Cadastro() {
       } else {
         setErro('Erro ao criar conta. Tente novamente.');
       }
+      setLoading(false);
     }
-    setLoading(false);
-  }
-
-  // Tela de sucesso para novo cliente (veio da landing)
-  if (sucesso && modo === 'novo') {
-    return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        background: '#0a0a0a', padding: '2rem', textAlign: 'center',
-        fontFamily: 'DM Sans, sans-serif',
-      }}>
-        <div style={{
-          width: '100%', maxWidth: 420,
-          background: '#111', border: '1px solid rgba(201,168,76,0.28)',
-          borderRadius: 20, padding: '2.5rem', position: 'relative', overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #C9A84C, transparent)' }} />
-
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-          <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 32, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>
-            CONTA CRIADA!
-          </div>
-          <div style={{ color: '#888880', fontSize: 15, marginBottom: 8, lineHeight: 1.6 }}>
-            Falta só um passo, <strong style={{ color: '#f0ede6' }}>{nome.trim()}</strong>.
-          </div>
-          <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
-            Assine o plano abaixo para ativar seu acesso. Depois da confirmação do pagamento, você já entra no painel.
-          </div>
-
-          <a
-            href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ"
-            style={{
-              display: 'block', width: '100%', textAlign: 'center',
-              background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none',
-              fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.1rem',
-              letterSpacing: '0.08em', padding: '16px', borderRadius: 8,
-              marginBottom: 12, transition: 'background 0.2s',
-            }}
-          >
-            ASSINAR POR R$ 67,90/MÊS
-          </a>
-
-          <div style={{ fontSize: 12, color: '#444440' }}>
-            Pagamento seguro via Lowify
-          </div>
-
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#555550' }}>
-            Já assinou?{' '}
-            <span
-              onClick={() => window.location.href = '/'}
-              style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}
-            >
-              Entrar no app
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Tela de sucesso para afiliado ou admin via link
-  if (sucesso) {
-    return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        background: 'var(--bg)', padding: '2rem', textAlign: 'center'
-      }}>
-        <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: 'var(--accent)', marginBottom: 8 }}>
-          {modo === 'afiliado' ? 'BEM-VINDO À EQUIPE!' : 'CONTA CRIADA!'}
-        </div>
-        <div style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 24 }}>
-          {modo === 'afiliado' ? 'Você já pode começar a registrar seus CPAs!' : 'Bem-vindo ao Akazza Tracker. Você já está logado!'}
-        </div>
-        <button onClick={() => window.location.href = '/'}
-          style={{ padding: '12px 28px', borderRadius: 10, background: 'var(--accent)', border: 'none', color: '#000', cursor: 'pointer', fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-display)' }}>
-          ENTRAR NO APP →
-        </button>
-      </div>
-    );
   }
 
   return (

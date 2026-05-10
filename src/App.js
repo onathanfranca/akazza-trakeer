@@ -196,6 +196,74 @@ function AppInner() {
   );
 }
 
+// Tela para admin que criou conta mas ainda não assinou
+function AssinaturaScreen() {
+  const { logout, userProfile } = useAuth();
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: '#0a0a0a', padding: '2rem', textAlign: 'center',
+      fontFamily: 'DM Sans, sans-serif',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: 420,
+        background: '#111', border: '1px solid rgba(201,168,76,0.28)',
+        borderRadius: 20, padding: '2.5rem', position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #C9A84C, transparent)' }} />
+
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.5rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>
+          ⚡ AKAZZA <span style={{ color: '#C9A84C' }}>TRACKER</span>
+        </div>
+
+        <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 28, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>
+          CONTA CRIADA!
+        </div>
+        <div style={{ color: '#888880', fontSize: 15, marginBottom: 8, lineHeight: 1.6 }}>
+          Falta só um passo{userProfile?.nome ? `, ${userProfile.nome.split(' ')[0]}` : ''}.
+        </div>
+        <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
+          Assine o plano para ativar seu acesso. Assim que o pagamento for confirmado você já entra no painel.
+        </div>
+
+        <a
+          href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ"
+          style={{
+            display: 'block', width: '100%', textAlign: 'center',
+            background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none',
+            fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.1rem',
+            letterSpacing: '0.08em', padding: '16px', borderRadius: 8,
+            marginBottom: 12,
+          }}
+        >
+          ASSINAR POR R$ 67,90/MÊS
+        </a>
+
+        <div style={{ fontSize: 12, color: '#444440', marginBottom: 24 }}>
+          Pagamento seguro via Lowify
+        </div>
+
+        <div style={{ paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#555550' }}>
+          Já assinou e ainda aparece essa tela?{' '}
+          <span
+            onClick={() => window.location.reload()}
+            style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Atualizar
+          </span>
+          {' '}ou{' '}
+          <span onClick={logout} style={{ color: '#555550', cursor: 'pointer' }}>
+            sair
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Tela para assinatura expirada (não é plano pendente, é bloqueio mesmo)
 function BlockedScreen() {
   const { logout } = useAuth();
   return (
@@ -220,14 +288,20 @@ function BlockedScreen() {
 }
 
 function AppGate() {
-  const { currentUser, tenantAtivo } = useAuth();
+  const { currentUser, userProfile, tenantData, tenantAtivo } = useAuth();
   const path = window.location.pathname;
 
   if (path === '/cadastro') return <Cadastro />;
   if (path === '/landing') return <Landing />;
 
   if (!currentUser) return <AuthPage />;
-  if (tenantAtivo === false) return <BlockedScreen />;
+
+  // Plano pendente = recém cadastrado, ainda não assinou
+  if (tenantAtivo === false) {
+    const isPendente = tenantData?.plano === 'pendente';
+    return isPendente ? <AssinaturaScreen /> : <BlockedScreen />;
+  }
+
   return <AppInner />;
 }
 
