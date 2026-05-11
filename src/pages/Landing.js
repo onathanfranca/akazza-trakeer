@@ -243,7 +243,6 @@ export default function Landing() {
 
         <nav className="lp-nav">
           <div className="lp-nav-logo">&#9889; AKAZZA <span>TRACKER</span></div>
-          <a href="/cadastro" className="lp-btn-nav">Criar conta</a>
         </nav>
 
         {/* HERO */}
