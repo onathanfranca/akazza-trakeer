@@ -23,6 +23,50 @@ import SuperAdmin from './pages/SuperAdmin';
 
 import './styles/global.css';
 
+const WA_NUMBER = '5516981430162';
+const WA_MESSAGE = 'Olá! Preciso de ajuda com o Akazza Tracker.';
+const WA_URL = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(WA_MESSAGE)}`;
+
+function BotaoWhatsApp() {
+  return (
+    <a
+      href={WA_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Suporte via WhatsApp"
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        right: 20,
+        zIndex: 9999,
+        width: 52,
+        height: 52,
+        borderRadius: '50%',
+        background: '#25D366',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 4px 16px rgba(37,211,102,0.4)',
+        transition: 'transform 0.2s, box-shadow 0.2s',
+        textDecoration: 'none',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'scale(1.1)';
+        e.currentTarget.style.boxShadow = '0 6px 24px rgba(37,211,102,0.55)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'scale(1)';
+        e.currentTarget.style.boxShadow = '0 4px 16px rgba(37,211,102,0.4)';
+      }}
+    >
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path fillRule="evenodd" clipRule="evenodd" d="M16 2C8.268 2 2 8.268 2 16c0 2.428.638 4.71 1.752 6.688L2 30l7.528-1.724A13.94 13.94 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2z" fill="white"/>
+        <path fillRule="evenodd" clipRule="evenodd" d="M21.586 18.916c-.308-.154-1.82-.898-2.102-.999-.282-.102-.488-.154-.693.154-.206.308-.793.999-.972 1.204-.179.205-.359.23-.667.077-.308-.154-1.3-.479-2.476-1.528-.915-.816-1.532-1.824-1.712-2.132-.18-.308-.019-.474.135-.627.138-.138.308-.359.462-.538.154-.18.205-.308.308-.513.102-.205.051-.385-.026-.538-.077-.154-.693-1.672-.949-2.29-.25-.602-.504-.52-.693-.53l-.59-.01c-.205 0-.538.077-.82.385-.282.308-1.077 1.052-1.077 2.566s1.103 2.977 1.257 3.182c.154.205 2.17 3.31 5.257 4.641.734.317 1.308.506 1.754.648.737.234 1.408.201 1.938.122.591-.088 1.82-.744 2.077-1.463.256-.718.256-1.334.179-1.463-.077-.128-.282-.205-.59-.359z" fill="#25D366"/>
+      </svg>
+    </a>
+  );
+}
+
 function Avatar({ foto, nome, size = 32 }) {
   if (foto) return (
     <img src={foto} alt="avatar" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)', flexShrink: 0 }} />
@@ -192,6 +236,8 @@ function AppInner() {
         {tab === 'perfil' && <Perfil />}
         {tab === 'superadmin' && isSuperAdmin && <SuperAdmin />}
       </main>
+
+      <BotaoWhatsApp />
     </div>
   );
 }
@@ -244,6 +290,7 @@ function AssinaturaScreen() {
           <span onClick={logout} style={{ color: '#555550', cursor: 'pointer', textDecoration: 'underline' }}>sair</span>
         </div>
       </div>
+      <BotaoWhatsApp />
     </div>
   );
 }
@@ -266,12 +313,13 @@ function BlockedScreen() {
       <button onClick={logout} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--card)', border: '1.5px solid var(--border)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
         Sair
       </button>
+      <BotaoWhatsApp />
     </div>
   );
 }
 
 function AppGate() {
-  const { currentUser, userProfile, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
+  const { currentUser, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
 
   if (!currentUser) return <AuthPage />;
   if (isSuperAdmin) return <AppInner />;
@@ -282,7 +330,6 @@ function AppGate() {
   return <AppInner />;
 }
 
-// Rotas públicas ficam FORA do AuthProvider para carregar instantaneamente
 function RootRouter() {
   const path = window.location.pathname;
   if (path === '/landing') return <Landing />;
