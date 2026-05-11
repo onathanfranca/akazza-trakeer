@@ -39,6 +39,7 @@ export default function Ranking({ casas, users, tenantId }) {
   const ranked = useMemo(() => {
     const map = {};
     cpas.forEach(cpa => {
+      // Corrigido: CPAs sem status (legados) são tratados como aprovados
       if (cpa.status && cpa.status !== 'aprovado') return;
       if (filterCasa !== 'Todas' && cpa.casa !== filterCasa) return;
       const user = users.find(u => u.uid === cpa.uid);
