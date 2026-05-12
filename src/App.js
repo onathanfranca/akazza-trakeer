@@ -133,7 +133,7 @@ function LoadingScreen() {
 
 function AppInner() {
   const { currentUser, userProfile, logout, isAdmin, isSuperAdmin, tenantId } = useAuth();
-  const { users, updateRole, removeUser } = useUsers(tenantId);
+  const { users, updateRole, removeUser, aprovarAfiliado, recusarAfiliado } = useUsers(tenantId);
   const { casas, saveCasa, addCasa, removeCasa } = useCasas(tenantId);
   const { config, saveConfig } = useConfig(tenantId);
 
