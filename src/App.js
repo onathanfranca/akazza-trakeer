@@ -246,14 +246,14 @@ function AppInner() {
           <span className="menu-toggle-bar" />
           {isAdmin && pendentesCount > 0 && <span className="menu-toggle-badge">{pendentesCount}</span>}
         </button>
-        <div className="logo" onClick={() => goTab(isAdmin ? 'admin' : 'meu')} style={{ flex: 1, textAlign: 'center' }}>
+        <div className="logo" onClick={() => goTab(isAdmin ? 'admin' : 'meu')}>
           ⚡ AKAZZA <span>TRACKER</span>
         </div>
-        <div className="header-right" style={{ flexWrap: 'nowrap' }}>
-          <div style={{ cursor: 'pointer' }} onClick={() => goTab('perfil')} title="Meu Perfil">
-            <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={34} />
+        <div className="header-right">
+          <div style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => goTab('perfil')} title="Meu Perfil">
+            <Avatar foto={userProfile?.foto} nome={userProfile?.nome} size={32} />
           </div>
-          {isSuperAdmin && <span className="admin-pill" style={{ whiteSpace: 'nowrap', background: 'var(--accent)' }}>👑 SUPER</span>}
+          {isSuperAdmin && <span className="admin-pill" style={{ whiteSpace: 'nowrap', background: 'var(--accent)' }}>👑</span>}
           {isAdmin && !isSuperAdmin && <span className="admin-pill" style={{ whiteSpace: 'nowrap' }}>ADMIN</span>}
           <button className="btn-theme" onClick={() => setDark(d => !d)}>{dark ? '☀️' : '🌙'}</button>
         </div>

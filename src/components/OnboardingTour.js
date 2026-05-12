@@ -114,29 +114,72 @@ function clamp(val, min, max) {
   return Math.max(min, Math.min(val, max));
 }
 
-function calcTooltipPos(rect, apontaPara, tW, tH) {
-  const gap = 14;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  let top, left;
+// Retorna dimensões do viewport considerando teclado virtual e barra do Safari
+function getViewport() {
+  const vv = window.visualViewport;
+  if (vv) {
+    return {
+      vw: vv.width,
+      vh: vv.height,
+      offsetTop: vv.offsetTop,
+      offsetLeft: vv.offsetLeft,
+    };
+  }
+  return { vw: window.innerWidth, vh: window.innerHeight, offsetTop: 0, offsetLeft: 0 };
+}
 
-  if (apontaPara === 'bottom') {
-    top  = rect.bottom + gap;
-    left = rect.left + rect.width / 2 - tW / 2;
-  } else if (apontaPara === 'top') {
-    top  = rect.top - tH - gap;
-    left = rect.left + rect.width / 2 - tW / 2;
-  } else if (apontaPara === 'right') {
-    top  = rect.top + rect.height / 2 - tH / 2;
-    left = rect.right + gap;
-  } else if (apontaPara === 'left') {
-    top  = rect.top + rect.height / 2 - tH / 2;
-    left = rect.left - tW - gap;
+function calcTooltipPos(rect, apontaPara, tW, tH) {
+  const gap = 12;
+  const margin = 12;
+  const { vw, vh, offsetTop, offsetLeft } = getViewport();
+
+  // Converte rect para coordenadas relativas ao visualViewport
+  const r = {
+    top:    rect.top    - offsetTop,
+    bottom: rect.bottom - offsetTop,
+    left:   rect.left   - offsetLeft,
+    right:  rect.right  - offsetLeft,
+    width:  rect.width,
+    height: rect.height,
+  };
+
+  let dir = apontaPara;
+
+  // Em mobile (<480px), passos com 'right' provavelmente não cabem à direita do drawer
+  // Verificar se cabe; se não, usar 'bottom'
+  if (dir === 'right' && r.right + gap + tW + margin > vw) {
+    dir = 'bottom';
+  }
+  if (dir === 'left' && r.left - gap - tW - margin < 0) {
+    dir = 'bottom';
+  }
+  // Se 'top' não cabe acima, vira 'bottom'
+  if (dir === 'top' && r.top - tH - gap < margin) {
+    dir = 'bottom';
   }
 
-  left = clamp(left, 12, vw - tW - 12);
-  top  = clamp(top,  12, vh - tH - 12);
-  return { top, left };
+  let top, left;
+
+  if (dir === 'bottom') {
+    top  = r.bottom + gap;
+    left = r.left + r.width / 2 - tW / 2;
+  } else if (dir === 'top') {
+    top  = r.top - tH - gap;
+    left = r.left + r.width / 2 - tW / 2;
+  } else if (dir === 'right') {
+    top  = r.top + r.height / 2 - tH / 2;
+    left = r.right + gap;
+  } else if (dir === 'left') {
+    top  = r.top + r.height / 2 - tH / 2;
+    left = r.left - tW - gap;
+  }
+
+  // Garante que nunca ultrapasse as bordas do viewport
+  left = clamp(left, margin, vw - tW - margin);
+  top  = clamp(top,  margin, vh - tH - margin);
+
+  // Ajusta de volta para coordenadas fixas (adiciona offset do visualViewport)
+  return { top: top + offsetTop, left: left + offsetLeft };
 }
 
 // Gera o clip-path do overlay com buraco retangular no elemento destacado
@@ -144,12 +187,15 @@ function calcTooltipPos(rect, apontaPara, tW, tH) {
 function gerarClipPath(rect) {
   if (!rect) return null;
   const pad = 6;
-  const t = Math.max(0, rect.top    - pad);
-  const r = Math.min(window.innerWidth,  rect.right  + pad);
-  const b = Math.min(window.innerHeight, rect.bottom + pad);
-  const l = Math.max(0, rect.left   - pad);
-  const W = window.innerWidth;
-  const H = window.innerHeight;
+  const vv = window.visualViewport;
+  const W = vv ? vv.width  : window.innerWidth;
+  const H = vv ? vv.height : window.innerHeight;
+  const offTop  = vv ? vv.offsetTop  : 0;
+  const offLeft = vv ? vv.offsetLeft : 0;
+  const t = Math.max(0, rect.top    - offTop  - pad);
+  const r = Math.min(W, rect.right  - offLeft + pad);
+  const b = Math.min(H, rect.bottom - offTop  + pad);
+  const l = Math.max(0, rect.left   - offLeft - pad);
 
   // Polígono: tela inteira com buraco retangular
   return `polygon(
@@ -210,7 +256,9 @@ export default function OnboardingTour({ isAdmin, goTab, setDrawerOpen }) {
     if (!ativo || !passoAtual) return;
 
     const tEl = tooltipRef.current;
-    const tW  = tEl ? tEl.offsetWidth  : 300;
+    const vv  = window.visualViewport;
+    const vw  = vv ? vv.width : window.innerWidth;
+    const tW  = tEl ? tEl.offsetWidth  : Math.min(296, vw - 24);
     const tH  = tEl ? tEl.offsetHeight : 170;
 
     if (!passoAtual.targetId) {
@@ -239,7 +287,7 @@ export default function OnboardingTour({ isAdmin, goTab, setDrawerOpen }) {
   // Recalcula ao mudar de passo e em resize
   useEffect(() => {
     if (!ativo) return;
-    const t = setTimeout(recalc, 250); // delay pra drawer/aba renderizar
+    const t = setTimeout(recalc, 350); // delay maior pra drawer/aba renderizar no iOS
 
     function onResize() {
       cancelAnimationFrame(rafRef.current);
@@ -247,12 +295,21 @@ export default function OnboardingTour({ isAdmin, goTab, setDrawerOpen }) {
     }
     window.addEventListener('resize', onResize);
     window.addEventListener('scroll', onResize, true);
+    // visualViewport para iOS Safari (teclado virtual, barra de URL)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onResize);
+      window.visualViewport.addEventListener('scroll', onResize);
+    }
 
     return () => {
       clearTimeout(t);
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onResize, true);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', onResize);
+        window.visualViewport.removeEventListener('scroll', onResize);
+      }
     };
   }, [ativo, passo, recalc]);
 
@@ -358,8 +415,8 @@ export default function OnboardingTour({ isAdmin, goTab, setDrawerOpen }) {
         onClick={encerrar}
         style={{
           position: 'fixed',
-          top: 14,
-          right: 14,
+          top: 'max(14px, env(safe-area-inset-top, 14px))',
+          right: 'max(14px, env(safe-area-inset-right, 14px))',
           zIndex: 8200,
           background: 'rgba(20,20,36,0.95)',
           border: '1px solid rgba(255,255,255,0.1)',
@@ -386,7 +443,7 @@ export default function OnboardingTour({ isAdmin, goTab, setDrawerOpen }) {
           style={{
             position: 'fixed',
             zIndex: 8100,
-            width: Math.min(296, window.innerWidth - 24),
+            width: Math.min(296, (window.visualViewport ? window.visualViewport.width : window.innerWidth) - 24),
             background: '#1c1c32',
             border: '1px solid rgba(201,168,76,0.3)',
             borderRadius: 14,
