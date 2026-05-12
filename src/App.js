@@ -133,7 +133,7 @@ function LoadingScreen() {
 
 function AppInner() {
   const { currentUser, userProfile, logout, isAdmin, isSuperAdmin, tenantId } = useAuth();
-  const { users, updateRole, removeUser } = useUsers(tenantId);
+  const { users, updateRole, removeUser, aprovarAfiliado, recusarAfiliado } = useUsers(tenantId);
   const { casas, saveCasa, addCasa, removeCasa } = useCasas(tenantId);
   const { config, saveConfig } = useConfig(tenantId);
 
@@ -261,7 +261,7 @@ function AppInner() {
         {tab === 'ranking' && <Ranking casas={casas} users={users} tenantId={tenantId} />}
         {tab === 'meu' && <MeuPainel casas={casas} metaDiaria={config.metaDiaria} tenantId={tenantId} />}
         {tab === 'links' && <Links casas={casas} />}
-        {tab === 'gerenciar' && isAdmin && <Gerenciar users={users} updateRole={updateRole} removeUser={removeUser} casas={casas} saveCasa={saveCasa} addCasa={addCasa} removeCasa={removeCasa} />}
+        {tab === 'gerenciar' && isAdmin && <Gerenciar users={users} updateRole={updateRole} removeUser={removeUser} aprovarAfiliado={aprovarAfiliado} recusarAfiliado={recusarAfiliado} casas={casas} saveCasa={saveCasa} addCasa={addCasa} removeCasa={removeCasa} />}
         {tab === 'config' && isAdmin && <Config config={config} saveConfig={saveConfig} />}
         {tab === 'fechamento' && isAdmin && <Fechamento users={users} casas={casas} tenantId={tenantId} />}
         {tab === 'meusfechamentos' && !isAdmin && <MeusFechamentos tenantId={tenantId} />}
@@ -350,6 +350,86 @@ function BlockedScreen() {
   );
 }
 
+function AfiliadoPendenteScreen() {
+  const { logout, userProfile } = useAuth();
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: '#0a0a0a', padding: '2rem', textAlign: 'center',
+      fontFamily: 'DM Sans, sans-serif',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: 420,
+        background: '#111', border: '1px solid rgba(201,168,76,0.28)',
+        borderRadius: 20, padding: '2.5rem', position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #C9A84C, transparent)' }} />
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.4rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>
+          ⚡ AKAZZA <span style={{ color: '#C9A84C' }}>TRACKER</span>
+        </div>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 26, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>
+          AGUARDANDO APROVAÇÃO
+        </div>
+        <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
+          {userProfile?.nome ? `${userProfile.nome.split(' ')[0]}, sua` : 'Sua'} conta foi criada com sucesso! Aguarde o administrador aprovar seu acesso.
+        </div>
+        <div style={{ paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#555550' }}>
+          Já foi aprovado?{' '}
+          <span onClick={() => window.location.reload()} style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}>
+            Atualizar
+          </span>
+          {' '}ou{' '}
+          <span onClick={logout} style={{ color: '#555550', cursor: 'pointer', textDecoration: 'underline' }}>sair</span>
+        </div>
+      </div>
+      <BotaoWhatsApp />
+    </div>
+  );
+}
+
+function AfiliadoRecusadoScreen() {
+  const { logout, userProfile } = useAuth();
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: '#0a0a0a', padding: '2rem', textAlign: 'center',
+      fontFamily: 'DM Sans, sans-serif',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: 420,
+        background: '#111', border: '1px solid rgba(229,57,53,0.3)',
+        borderRadius: 20, padding: '2.5rem', position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #e53935, transparent)' }} />
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.4rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>
+          ⚡ AKAZZA <span style={{ color: '#C9A84C' }}>TRACKER</span>
+        </div>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>❌</div>
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 26, color: '#e53935', letterSpacing: 2, marginBottom: 8 }}>
+          ACESSO NEGADO
+        </div>
+        <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
+          {userProfile?.nome ? `${userProfile.nome.split(' ')[0]}, seu` : 'Seu'} cadastro foi recusado pelo administrador. Entre em contato para mais informações.
+        </div>
+        <a href={`https://wa.me/5516981430162?text=${encodeURIComponent('Olá! Meu cadastro no Akazza Tracker foi recusado. Pode me ajudar?')}`}
+          target="_blank" rel="noopener noreferrer"
+          style={{
+            display: 'block', width: '100%', textAlign: 'center',
+            background: '#25D366', color: '#fff', textDecoration: 'none',
+            fontFamily: 'Bebas Neue, sans-serif', fontSize: '1rem',
+            letterSpacing: '0.08em', padding: '14px', borderRadius: 8, marginBottom: 16,
+          }}>
+          FALAR COM SUPORTE
+        </a>
+        <span onClick={logout} style={{ color: '#555550', cursor: 'pointer', textDecoration: 'underline', fontSize: 13 }}>sair</span>
+      </div>
+    </div>
+  );
+}
+
 function AppGate() {
   const { currentUser, userProfile, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
 
@@ -359,6 +439,13 @@ function AppGate() {
   if (currentUser && !userProfile) return <LoadingScreen />;
 
   if (isSuperAdmin) return <AppInner />;
+
+  // Afiliado pendente ou recusado
+  if (!isAdmin) {
+    if (userProfile?.status === 'pendente') return <AfiliadoPendenteScreen />;
+    if (userProfile?.status === 'recusado') return <AfiliadoRecusadoScreen />;
+  }
+
   if (!tenantAtivo) {
     if (isAdmin) return <AssinaturaScreen />;
     return <BlockedScreen />;

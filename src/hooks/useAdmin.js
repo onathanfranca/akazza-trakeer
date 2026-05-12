@@ -22,7 +22,9 @@ export function useUsers(tenantId) {
   }, [tenantId]);
   async function updateRole(uid, role) { return updateDoc(doc(db, 'users', uid), { role }); }
   async function removeUser(uid) { return deleteDoc(doc(db, 'users', uid)); }
-  return { users, updateRole, removeUser };
+  async function aprovarAfiliado(uid) { return updateDoc(doc(db, 'users', uid), { status: 'ativo' }); }
+  async function recusarAfiliado(uid) { return updateDoc(doc(db, 'users', uid), { status: 'recusado' }); }
+  return { users, updateRole, removeUser, aprovarAfiliado, recusarAfiliado };
 }
 
 export function useCasas(tenantId) {

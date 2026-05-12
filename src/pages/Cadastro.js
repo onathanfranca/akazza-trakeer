@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import { useAuth } from '../context/AuthContext';
 
 function gerarTenantId(nome) {
   return nome
@@ -16,7 +15,6 @@ function gerarTenantId(nome) {
 }
 
 export default function Cadastro() {
-  const { fetchUserProfile } = useAuth();
   const [email, setEmail] = useState('');
   const [tenantId, setTenantId] = useState('');
   const [nome, setNome] = useState('');
@@ -76,8 +74,7 @@ export default function Cadastro() {
           createdAt: serverTimestamp(),
         });
 
-        // Carrega perfil no contexto e redireciona sem precisar fazer login
-        await fetchUserProfile(cred.user.uid);
+        // Redireciona para / — o App vai detectar plano pendente e mostrar tela de assinar
         window.location.href = '/';
         return;
       }
@@ -106,6 +103,7 @@ export default function Cadastro() {
         role: modo === 'afiliado' ? 'afiliado' : 'admin',
         tenantId: resolvedTenantId,
         foto: null,
+        status: modo === 'afiliado' ? 'pendente' : 'ativo',
         createdAt: serverTimestamp(),
       });
 
@@ -117,8 +115,6 @@ export default function Cadastro() {
         });
       }
 
-      // Carrega perfil no contexto e redireciona sem precisar fazer login
-      await fetchUserProfile(cred.user.uid);
       window.location.href = '/';
     } catch (e) {
       console.error(e);

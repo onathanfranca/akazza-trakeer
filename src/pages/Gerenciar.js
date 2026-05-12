@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import AfiliadoPerfil from './AfiliadoPerfil';
 
-export default function Gerenciar({ users, updateRole, removeUser, casas, saveCasa, addCasa, removeCasa }) {
+export default function Gerenciar({ users, updateRole, removeUser, aprovarAfiliado, recusarAfiliado, casas, saveCasa, addCasa, removeCasa }) {
   const { showToast } = useToast();
   const { tenantId } = useAuth();
   const [newCasa, setNewCasa] = useState('');
@@ -18,6 +18,18 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
   const [selectedUser, setSelectedUser] = useState(null);
 
   const linkConvite = `https://akazzatracker.vercel.app/cadastro?tenant=${tenantId}`;
+  const pendentes = users.filter(u => u.role === 'afiliado' && u.status === 'pendente');
+
+  async function handleAprovar(u) {
+    try { await aprovarAfiliado(u.uid); showToast(`✅ ${u.nome} aprovado!`, 'green'); }
+    catch { showToast('Erro ao aprovar.', 'red'); }
+  }
+
+  async function handleRecusar(u) {
+    if (!window.confirm(`Recusar ${u.nome}?`)) return;
+    try { await recusarAfiliado(u.uid); showToast(`${u.nome} recusado.`, 'yellow'); }
+    catch { showToast('Erro ao recusar.', 'red'); }
+  }
 
   function copiarLink() {
     navigator.clipboard.writeText(linkConvite);
@@ -108,6 +120,30 @@ export default function Gerenciar({ users, updateRole, removeUser, casas, saveCa
           </button>
         </div>
       </div>
+
+      {/* Afiliados pendentes */}
+      {pendentes.length > 0 && (
+        <div className="manage-box" style={{ borderColor: 'rgba(201,168,76,0.4)' }}>
+          <div className="manage-title">⏳ Aguardando aprovação <span style={{ background: 'var(--accent)', color: '#000', borderRadius: 99, fontSize: 11, padding: '2px 8px', marginLeft: 8 }}>{pendentes.length}</span></div>
+          {pendentes.map(u => (
+            <div className="user-row" key={u.uid} style={{ flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 160 }}>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: 'var(--muted)', flexShrink: 0 }}>
+                  {(u.nome || '?')[0].toUpperCase()}
+                </div>
+                <div>
+                  <div className="user-name">{u.nome}</div>
+                  <div className="user-email">{u.email}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={() => handleAprovar(u)} style={{ padding: '7px 16px', borderRadius: 8, background: '#1a7a1a', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✅ Aprovar</button>
+                <button onClick={() => handleRecusar(u)} style={{ padding: '7px 16px', borderRadius: 8, background: 'rgba(229,57,53,0.15)', border: '1px solid rgba(229,57,53,0.4)', color: '#e53935', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✕ Recusar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Users */}
       <div className="manage-box">
