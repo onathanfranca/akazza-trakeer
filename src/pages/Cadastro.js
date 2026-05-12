@@ -51,9 +51,13 @@ export default function Cadastro() {
       let resolvedTenantId = tenantId;
 
       if (modo === 'novo') {
-        // Novo cliente da landing — cria tenant pendente e loga direto
+        // Novo cliente — cria tenant com plano pendente + 7 dias de trial
         resolvedTenantId = gerarTenantId(nome);
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), senha);
+
+        // Calcula a data de expiração do trial (7 dias a partir de agora)
+        const trialExpira = new Date();
+        trialExpira.setDate(trialExpira.getDate() + 7);
 
         await setDoc(doc(db, 'tenants', resolvedTenantId), {
           tenantId: resolvedTenantId,
@@ -63,6 +67,7 @@ export default function Cadastro() {
           adminNome: nome.trim(),
           plano: 'pendente',
           status: 'ativo',
+          trialExpira: trialExpira, // ← campo do trial
           createdAt: serverTimestamp(),
         });
 
@@ -149,9 +154,23 @@ export default function Cadastro() {
             {modo === 'afiliado'
               ? 'Você foi convidado! Crie sua conta para começar.'
               : modo === 'novo'
-              ? 'Crie sua conta e assine para começar.'
+              ? '7 dias grátis para testar. Sem cartão agora.'
               : 'Crie sua conta e comece a rastrear'}
           </div>
+          {modo === 'novo' && (
+            <div style={{
+              marginTop: 12,
+              background: 'rgba(201,168,76,0.1)',
+              border: '1px solid rgba(201,168,76,0.3)',
+              borderRadius: 8,
+              padding: '8px 14px',
+              fontSize: 13,
+              color: '#C9A84C',
+              fontWeight: 600,
+            }}>
+              🎁 Teste grátis por 7 dias — sem precisar pagar agora
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -197,7 +216,7 @@ export default function Cadastro() {
 
           <button onClick={handleCadastro} disabled={loading}
             style={{ width: '100%', padding: '14px', borderRadius: 10, background: loading ? 'var(--card)' : 'var(--accent)', border: 'none', color: loading ? 'var(--text-muted)' : '#000', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 1, marginTop: 4, transition: 'all .15s' }}>
-            {loading ? 'CRIANDO CONTA...' : 'CRIAR CONTA →'}
+            {loading ? 'CRIANDO CONTA...' : modo === 'novo' ? 'COMEÇAR TESTE GRÁTIS →' : 'CRIAR CONTA →'}
           </button>
 
           <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>

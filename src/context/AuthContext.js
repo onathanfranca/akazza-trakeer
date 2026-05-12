@@ -61,18 +61,15 @@ export function AuthProvider({ children }) {
           if (tenantSnap.exists()) {
             setTenantData(tenantSnap.data());
           } else {
-            // Tenant não encontrado — trata como pendente
             setTenantData({ plano: 'pendente' });
           }
         } catch (tenantErr) {
           console.warn('Erro ao buscar tenant:', tenantErr);
-          // Se não conseguiu ler o tenant, trata como pendente
           setTenantData({ plano: 'pendente' });
         }
       }
     } catch (err) {
       console.error('Erro ao buscar perfil:', err);
-      // Não travar a tela — deixa userProfile null e loading resolve
     }
   }
 
@@ -98,7 +95,27 @@ export function AuthProvider({ children }) {
   const isSuperAdmin = userProfile?.role === 'superadmin';
   const isAdmin = userProfile?.role === 'admin' || isSuperAdmin;
   const tenantId = userProfile?.tenantId || 'akazza-master';
-  const tenantAtivo = isSuperAdmin || tenantData?.plano === 'ativo';
+
+  // ── Lógica de trial ────────────────────────────────────────────────────────
+  const agora = new Date();
+
+  // trialExpira pode vir como Timestamp do Firestore ou como Date
+  const trialExpiraRaw = tenantData?.trialExpira;
+  const trialExpira = trialExpiraRaw?.toDate
+    ? trialExpiraRaw.toDate()          // Firestore Timestamp
+    : trialExpiraRaw instanceof Date
+      ? trialExpiraRaw                 // Date normal (cadastro recém-feito)
+      : null;
+
+  const emTrial = Boolean(trialExpira && trialExpira > agora);
+
+  const diasRestantesTrial = emTrial
+    ? Math.ceil((trialExpira - agora) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  // Tenant ativo = plano pago OU dentro do período de trial
+  const tenantAtivo = isSuperAdmin || tenantData?.plano === 'ativo' || emTrial;
+  // ──────────────────────────────────────────────────────────────────────────
 
   const value = {
     currentUser,
@@ -113,6 +130,10 @@ export function AuthProvider({ children }) {
     isSuperAdmin,
     tenantId,
     tenantAtivo,
+    // trial
+    emTrial,
+    diasRestantesTrial,
+    trialExpira,
   };
 
   return (

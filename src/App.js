@@ -21,6 +21,7 @@ import Links from './pages/Links';
 import MeusFechamentos from './pages/MeusFechamentos';
 import SuperAdmin from './pages/SuperAdmin';
 import Historico from './pages/Historico';
+import TrialBanner from './components/TrialBanner';
 
 import './styles/global.css';
 
@@ -257,6 +258,9 @@ function AppInner() {
         </div>
       </header>
 
+      {/* Banner de trial — aparece logo abaixo do header, só para admin em trial */}
+      <TrialBanner />
+
       <main>
         {tab === 'admin' && isAdmin && <AdminPainel casas={casas} users={users} metaDiaria={config.metaDiaria} config={config} tenantId={tenantId} />}
         {tab === 'aprovacoes' && isAdmin && <Aprovacoes casas={casas} users={users} tenantId={tenantId} />}
@@ -278,7 +282,21 @@ function AppInner() {
 }
 
 function AssinaturaScreen() {
-  const { logout, userProfile } = useAuth();
+  const { logout, userProfile, tenantData } = useAuth();
+
+  // Detecta se o trial expirou (tinha trial mas plano ainda não é ativo)
+  const trialExpirou = tenantData?.trialExpira && tenantData?.plano !== 'ativo';
+
+  const titulo = trialExpirou ? 'SEU TESTE ENCERROU' : 'CONTA CRIADA!';
+  const icone = trialExpirou ? '⏰' : '🎉';
+  const subtitulo = trialExpirou
+    ? `Seus 7 dias de teste chegaram ao fim${userProfile?.nome ? `, ${userProfile.nome.split(' ')[0]}` : ''}.`
+    : `Falta só um passo${userProfile?.nome ? `, ${userProfile.nome.split(' ')[0]}` : ''}.`;
+  const descricao = trialExpirou
+    ? 'Assine o plano para continuar com acesso completo ao Akazza Tracker. Seus dados estão salvos e esperando por você.'
+    : 'Assine o plano para ativar seu acesso. Assim que o pagamento for confirmado você já entra no painel.';
+  const labelBotao = trialExpirou ? 'ASSINAR E CONTINUAR — R$ 67,90/MÊS' : 'ASSINAR POR R$ 67,90/MÊS';
+
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', flexDirection: 'column',
@@ -295,23 +313,23 @@ function AssinaturaScreen() {
         <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.4rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>
           ⚡ AKAZZA <span style={{ color: '#C9A84C' }}>TRACKER</span>
         </div>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>{icone}</div>
         <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 28, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>
-          CONTA CRIADA!
+          {titulo}
         </div>
         <div style={{ color: '#888880', fontSize: 15, marginBottom: 8, lineHeight: 1.6 }}>
-          Falta só um passo{userProfile?.nome ? `, ${userProfile.nome.split(' ')[0]}` : ''}.
+          {subtitulo}
         </div>
         <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
-          Assine o plano para ativar seu acesso. Assim que o pagamento for confirmado você já entra no painel.
+          {descricao}
         </div>
         <a href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ" style={{
           display: 'block', width: '100%', textAlign: 'center',
           background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none',
-          fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.1rem',
-          letterSpacing: '0.08em', padding: '16px', borderRadius: 8, marginBottom: 12,
+          fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.05rem',
+          letterSpacing: '0.06em', padding: '16px', borderRadius: 8, marginBottom: 12,
         }}>
-          ASSINAR POR R$ 67,90/MÊS
+          {labelBotao}
         </a>
         <div style={{ fontSize: 12, color: '#444440', marginBottom: 24 }}>
           Pagamento seguro via Lowify
@@ -372,7 +390,11 @@ function AppGate() {
 function RootRouter() {
   const path = window.location.pathname;
   if (path === '/landing') return <Landing />;
-  if (path === '/cadastro') return <Cadastro />;
+  if (path === '/cadastro') return (
+    <AuthProvider>
+      <Cadastro />
+    </AuthProvider>
+  );
 
   return (
     <AuthProvider>
