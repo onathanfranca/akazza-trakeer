@@ -76,7 +76,7 @@ export default function Cadastro() {
           createdAt: serverTimestamp(),
         });
 
-        // Carrega o perfil no contexto e redireciona — sem precisar fazer login
+        // Carrega perfil no contexto e redireciona sem precisar fazer login
         await fetchUserProfile(cred.user.uid);
         window.location.href = '/';
         return;
@@ -117,7 +117,7 @@ export default function Cadastro() {
         });
       }
 
-      // Carrega o perfil no contexto e redireciona — sem precisar fazer login
+      // Carrega perfil no contexto e redireciona sem precisar fazer login
       await fetchUserProfile(cred.user.uid);
       window.location.href = '/';
     } catch (e) {

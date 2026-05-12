@@ -369,7 +369,12 @@ function AppGate() {
 function RootRouter() {
   const path = window.location.pathname;
   if (path === '/landing') return <Landing />;
-  if (path === '/cadastro') return <Cadastro />;
+
+  if (path === '/cadastro') return (
+    <AuthProvider>
+      <Cadastro />
+    </AuthProvider>
+  );
 
   return (
     <AuthProvider>
