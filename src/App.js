@@ -22,6 +22,7 @@ import MeusFechamentos from './pages/MeusFechamentos';
 import SuperAdmin from './pages/SuperAdmin';
 import Historico from './pages/Historico';
 import TrialBanner from './components/TrialBanner';
+import OnboardingTour from './components/OnboardingTour';
 
 import './styles/global.css';
 
@@ -175,26 +176,27 @@ function AppInner() {
     return () => { document.body.style.overflow = ''; };
   }, [drawerOpen]);
 
+  // onbId = id HTML que o tooltip do onboarding vai apontar no drawer
   const ADMIN_TABS = [
-    { id: 'admin', label: '📊 Painel Geral' },
-    { id: 'aprovacoes', label: '✅ Aprovações' },
-    { id: 'meu', label: '🏠 Meu Painel' },
-    { id: 'ranking', label: '🏆 Ranking' },
-    { id: 'links', label: '🔗 Links' },
-    { id: 'equipe', label: '👥 Equipe' },
-    { id: 'historico', label: '📜 Histórico' },
-    { id: 'fechamento', label: '💰 Fechamentos' },
-    { id: 'config', label: '⚙️ Config' },
-    { id: 'perfil', label: '👤 Perfil' },
-    ...(isSuperAdmin ? [{ id: 'superadmin', label: '🌐 Super Admin' }] : []),
+    { id: 'admin',          label: '📊 Painel Geral', onbId: 'onb-painel-admin' },
+    { id: 'aprovacoes',     label: '✅ Aprovações',    onbId: 'onb-aprovacoes' },
+    { id: 'meu',            label: '🏠 Meu Painel',   onbId: null },
+    { id: 'ranking',        label: '🏆 Ranking',       onbId: null },
+    { id: 'links',          label: '🔗 Links',         onbId: 'onb-links' },
+    { id: 'equipe',         label: '👥 Equipe',        onbId: null },
+    { id: 'historico',      label: '📜 Histórico',     onbId: null },
+    { id: 'fechamento',     label: '💰 Fechamentos',   onbId: 'onb-fechamento' },
+    { id: 'config',         label: '⚙️ Config',        onbId: 'onb-config' },
+    { id: 'perfil',         label: '👤 Perfil',        onbId: 'onb-perfil' },
+    ...(isSuperAdmin ? [{ id: 'superadmin', label: '🌐 Super Admin', onbId: null }] : []),
   ];
 
   const AFF_TABS = [
-    { id: 'meu', label: '🏠 Meu Painel' },
-    { id: 'ranking', label: '🏆 Ranking' },
-    { id: 'links', label: '🔗 Links' },
-    { id: 'meusfechamentos', label: '💰 Fechamentos' },
-    { id: 'perfil', label: '👤 Perfil' },
+    { id: 'meu',             label: '🏠 Meu Painel',  onbId: null },
+    { id: 'ranking',         label: '🏆 Ranking',      onbId: null },
+    { id: 'links',           label: '🔗 Links',        onbId: null },
+    { id: 'meusfechamentos', label: '💰 Fechamentos',  onbId: null },
+    { id: 'perfil',          label: '👤 Perfil',       onbId: null },
   ];
 
   const tabs = isAdmin ? ADMIN_TABS : AFF_TABS;
@@ -212,7 +214,12 @@ function AppInner() {
           {tabs.map(t => {
             const isPendingTab = t.id === 'aprovacoes' && isAdmin && pendentesCount > 0;
             return (
-              <button key={t.id} className={`drawer-tab${tab === t.id ? ' active' : ''}`} onClick={() => goTab(t.id)}>
+              <button
+                key={t.id}
+                id={t.onbId || undefined}
+                className={`drawer-tab${tab === t.id ? ' active' : ''}`}
+                onClick={() => goTab(t.id)}
+              >
                 {t.label}
                 {isPendingTab && <span className="drawer-tab-badge">{pendentesCount}</span>}
               </button>
@@ -239,7 +246,8 @@ function AppInner() {
       </nav>
 
       <header className="header">
-        <button className="menu-toggle" onClick={() => setDrawerOpen(true)} aria-label="Abrir menu">
+        {/* id para o onboarding apontar pro botão de menu */}
+        <button id="onb-menu-toggle" className="menu-toggle" onClick={() => setDrawerOpen(true)} aria-label="Abrir menu">
           <span className="menu-toggle-bar" />
           <span className="menu-toggle-bar" />
           <span className="menu-toggle-bar" />
@@ -258,25 +266,28 @@ function AppInner() {
         </div>
       </header>
 
-      {/* Banner de trial — aparece logo abaixo do header, só para admin em trial */}
+      {/* Banner de trial — só para admin em trial */}
       <TrialBanner />
 
       <main>
-        {tab === 'admin' && isAdmin && <AdminPainel casas={casas} users={users} metaDiaria={config.metaDiaria} config={config} tenantId={tenantId} />}
-        {tab === 'aprovacoes' && isAdmin && <Aprovacoes casas={casas} users={users} tenantId={tenantId} />}
-        {tab === 'ranking' && <Ranking casas={casas} users={users} tenantId={tenantId} />}
-        {tab === 'meu' && <MeuPainel casas={casas} metaDiaria={config.metaDiaria} tenantId={tenantId} />}
-        {tab === 'links' && <Links casas={casas} />}
-        {tab === 'equipe' && isAdmin && <Equipe users={users} updateRole={updateRole} removeUser={removeUser} aprovarAfiliado={aprovarAfiliado} recusarAfiliado={recusarAfiliado} casas={casas} />}
-        {tab === 'historico' && isAdmin && <Historico />}
-        {tab === 'config' && isAdmin && <Config config={config} saveConfig={saveConfig} casas={casas} saveCasa={saveCasa} addCasa={addCasa} removeCasa={removeCasa} />}
-        {tab === 'fechamento' && isAdmin && <Fechamento users={users} casas={casas} tenantId={tenantId} />}
-        {tab === 'meusfechamentos' && !isAdmin && <MeusFechamentos tenantId={tenantId} />}
-        {tab === 'perfil' && <Perfil />}
-        {tab === 'superadmin' && isSuperAdmin && <SuperAdmin />}
+        {tab === 'admin'           && isAdmin      && <AdminPainel casas={casas} users={users} metaDiaria={config.metaDiaria} config={config} tenantId={tenantId} />}
+        {tab === 'aprovacoes'      && isAdmin      && <Aprovacoes casas={casas} users={users} tenantId={tenantId} />}
+        {tab === 'ranking'                         && <Ranking casas={casas} users={users} tenantId={tenantId} />}
+        {tab === 'meu'                             && <MeuPainel casas={casas} metaDiaria={config.metaDiaria} tenantId={tenantId} />}
+        {tab === 'links'                           && <Links casas={casas} />}
+        {tab === 'equipe'          && isAdmin      && <Equipe users={users} updateRole={updateRole} removeUser={removeUser} aprovarAfiliado={aprovarAfiliado} recusarAfiliado={recusarAfiliado} casas={casas} />}
+        {tab === 'historico'       && isAdmin      && <Historico />}
+        {tab === 'config'          && isAdmin      && <Config config={config} saveConfig={saveConfig} casas={casas} saveCasa={saveCasa} addCasa={addCasa} removeCasa={removeCasa} />}
+        {tab === 'fechamento'      && isAdmin      && <Fechamento users={users} casas={casas} tenantId={tenantId} />}
+        {tab === 'meusfechamentos' && !isAdmin     && <MeusFechamentos tenantId={tenantId} />}
+        {tab === 'perfil'                          && <Perfil />}
+        {tab === 'superadmin'      && isSuperAdmin && <SuperAdmin />}
       </main>
 
       <BotaoWhatsApp />
+
+      {/* Tour de onboarding — aparece uma vez pra novos admins */}
+      <OnboardingTour isAdmin={isAdmin} goTab={goTab} />
     </div>
   );
 }
@@ -284,15 +295,14 @@ function AppInner() {
 function AssinaturaScreen() {
   const { logout, userProfile, tenantData } = useAuth();
 
-  // Detecta se o trial expirou (tinha trial mas plano ainda não é ativo)
   const trialExpirou = tenantData?.trialExpira && tenantData?.plano !== 'ativo';
 
-  const titulo = trialExpirou ? 'SEU TESTE ENCERROU' : 'CONTA CRIADA!';
-  const icone = trialExpirou ? '⏰' : '🎉';
-  const subtitulo = trialExpirou
+  const titulo     = trialExpirou ? 'SEU TESTE ENCERROU' : 'CONTA CRIADA!';
+  const icone      = trialExpirou ? '⏰' : '🎉';
+  const subtitulo  = trialExpirou
     ? `Seus 7 dias de teste chegaram ao fim${userProfile?.nome ? `, ${userProfile.nome.split(' ')[0]}` : ''}.`
     : `Falta só um passo${userProfile?.nome ? `, ${userProfile.nome.split(' ')[0]}` : ''}.`;
-  const descricao = trialExpirou
+  const descricao  = trialExpirou
     ? 'Assine o plano para continuar com acesso completo ao Akazza Tracker. Seus dados estão salvos e esperando por você.'
     : 'Assine o plano para ativar seu acesso. Assim que o pagamento for confirmado você já entra no painel.';
   const labelBotao = trialExpirou ? 'ASSINAR E CONTINUAR — R$ 67,90/MÊS' : 'ASSINAR POR R$ 67,90/MÊS';
@@ -317,12 +327,8 @@ function AssinaturaScreen() {
         <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 28, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>
           {titulo}
         </div>
-        <div style={{ color: '#888880', fontSize: 15, marginBottom: 8, lineHeight: 1.6 }}>
-          {subtitulo}
-        </div>
-        <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
-          {descricao}
-        </div>
+        <div style={{ color: '#888880', fontSize: 15, marginBottom: 8, lineHeight: 1.6 }}>{subtitulo}</div>
+        <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>{descricao}</div>
         <a href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ" style={{
           display: 'block', width: '100%', textAlign: 'center',
           background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none',
@@ -331,14 +337,10 @@ function AssinaturaScreen() {
         }}>
           {labelBotao}
         </a>
-        <div style={{ fontSize: 12, color: '#444440', marginBottom: 24 }}>
-          Pagamento seguro via Lowify
-        </div>
+        <div style={{ fontSize: 12, color: '#444440', marginBottom: 24 }}>Pagamento seguro via Lowify</div>
         <div style={{ paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#555550' }}>
           Já assinou e ainda aparece essa tela?{' '}
-          <span onClick={() => window.location.reload()} style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}>
-            Atualizar
-          </span>
+          <span onClick={() => window.location.reload()} style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}>Atualizar</span>
           {' '}ou{' '}
           <span onClick={logout} style={{ color: '#555550', cursor: 'pointer', textDecoration: 'underline' }}>sair</span>
         </div>
@@ -375,10 +377,7 @@ function AppGate() {
   const { currentUser, userProfile, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
 
   if (!currentUser) return <AuthPage />;
-
-  // Espera o perfil carregar antes de decidir a tela
   if (currentUser && !userProfile) return <LoadingScreen />;
-
   if (isSuperAdmin) return <AppInner />;
   if (!tenantAtivo) {
     if (isAdmin) return <AssinaturaScreen />;
