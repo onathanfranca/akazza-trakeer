@@ -113,17 +113,11 @@ function LoadingScreen() {
       flexDirection: 'column',
       gap: 16,
     }}>
-      <div style={{
-        fontFamily: 'Bebas Neue, sans-serif',
-        fontSize: 28,
-        letterSpacing: 4,
-        color: '#C9A84C',
-      }}>
+      <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 28, letterSpacing: 4, color: '#C9A84C' }}>
         ⚡ AKAZZA TRACKER
       </div>
       <div style={{
-        width: 40,
-        height: 40,
+        width: 40, height: 40,
         border: '3px solid rgba(201,168,76,0.2)',
         borderTop: '3px solid #C9A84C',
         borderRadius: '50%',
@@ -176,7 +170,6 @@ function AppInner() {
     return () => { document.body.style.overflow = ''; };
   }, [drawerOpen]);
 
-  // onbId = id HTML que o tooltip do onboarding vai apontar no drawer
   const ADMIN_TABS = [
     { id: 'admin',          label: '📊 Painel Geral', onbId: 'onb-painel-admin' },
     { id: 'aprovacoes',     label: '✅ Aprovações',    onbId: 'onb-aprovacoes' },
@@ -187,7 +180,7 @@ function AppInner() {
     { id: 'historico',      label: '📜 Histórico',     onbId: null },
     { id: 'fechamento',     label: '💰 Fechamentos',   onbId: 'onb-fechamento' },
     { id: 'config',         label: '⚙️ Config',        onbId: 'onb-config' },
-    { id: 'perfil',         label: '👤 Perfil',        onbId: 'onb-perfil' },
+    { id: 'perfil',         label: '👤 Perfil',        onbId: null },
     ...(isSuperAdmin ? [{ id: 'superadmin', label: '🌐 Super Admin', onbId: null }] : []),
   ];
 
@@ -246,7 +239,7 @@ function AppInner() {
       </nav>
 
       <header className="header">
-        {/* id para o onboarding apontar pro botão de menu */}
+        {/* id para o onboarding apontar pro botão de menu — sempre visível no header */}
         <button id="onb-menu-toggle" className="menu-toggle" onClick={() => setDrawerOpen(true)} aria-label="Abrir menu">
           <span className="menu-toggle-bar" />
           <span className="menu-toggle-bar" />
@@ -286,17 +279,19 @@ function AppInner() {
 
       <BotaoWhatsApp />
 
-      {/* Tour de onboarding — aparece uma vez pra novos admins */}
-      <OnboardingTour isAdmin={isAdmin} goTab={goTab} />
+      {/* Tour de onboarding — passa setDrawerOpen pra o tour controlar o drawer */}
+      <OnboardingTour
+        isAdmin={isAdmin}
+        goTab={goTab}
+        setDrawerOpen={setDrawerOpen}
+      />
     </div>
   );
 }
 
 function AssinaturaScreen() {
   const { logout, userProfile, tenantData } = useAuth();
-
   const trialExpirou = tenantData?.trialExpira && tenantData?.plano !== 'ativo';
-
   const titulo     = trialExpirou ? 'SEU TESTE ENCERROU' : 'CONTA CRIADA!';
   const icone      = trialExpirou ? '⏰' : '🎉';
   const subtitulo  = trialExpirou
@@ -308,35 +303,15 @@ function AssinaturaScreen() {
   const labelBotao = trialExpirou ? 'ASSINAR E CONTINUAR — R$ 67,90/MÊS' : 'ASSINAR POR R$ 67,90/MÊS';
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: '#0a0a0a', padding: '2rem', textAlign: 'center',
-      fontFamily: 'DM Sans, sans-serif',
-    }}>
-      <div style={{
-        width: '100%', maxWidth: 420,
-        background: '#111', border: '1px solid rgba(201,168,76,0.28)',
-        borderRadius: 20, padding: '2.5rem', position: 'relative', overflow: 'hidden',
-      }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', padding: '2rem', textAlign: 'center', fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ width: '100%', maxWidth: 420, background: '#111', border: '1px solid rgba(201,168,76,0.28)', borderRadius: 20, padding: '2.5rem', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #C9A84C, transparent)' }} />
-        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.4rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>
-          ⚡ AKAZZA <span style={{ color: '#C9A84C' }}>TRACKER</span>
-        </div>
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.4rem', letterSpacing: '0.04em', color: '#f0ede6', marginBottom: 24 }}>⚡ AKAZZA <span style={{ color: '#C9A84C' }}>TRACKER</span></div>
         <div style={{ fontSize: 40, marginBottom: 12 }}>{icone}</div>
-        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 28, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>
-          {titulo}
-        </div>
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 28, color: '#C9A84C', letterSpacing: 2, marginBottom: 8 }}>{titulo}</div>
         <div style={{ color: '#888880', fontSize: 15, marginBottom: 8, lineHeight: 1.6 }}>{subtitulo}</div>
         <div style={{ color: '#888880', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>{descricao}</div>
-        <a href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ" style={{
-          display: 'block', width: '100%', textAlign: 'center',
-          background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none',
-          fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.05rem',
-          letterSpacing: '0.06em', padding: '16px', borderRadius: 8, marginBottom: 12,
-        }}>
-          {labelBotao}
-        </a>
+        <a href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ" style={{ display: 'block', width: '100%', textAlign: 'center', background: '#C9A84C', color: '#0a0a0a', textDecoration: 'none', fontFamily: 'Bebas Neue, sans-serif', fontSize: '1.05rem', letterSpacing: '0.06em', padding: '16px', borderRadius: 8, marginBottom: 12 }}>{labelBotao}</a>
         <div style={{ fontSize: 12, color: '#444440', marginBottom: 24 }}>Pagamento seguro via Lowify</div>
         <div style={{ paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#555550' }}>
           Já assinou e ainda aparece essa tela?{' '}
@@ -353,21 +328,11 @@ function AssinaturaScreen() {
 function BlockedScreen() {
   const { logout } = useAuth();
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg)', padding: '2rem', textAlign: 'center'
-    }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: '2rem', textAlign: 'center' }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: 'var(--accent)', marginBottom: 8 }}>
-        ACESSO BLOQUEADO
-      </div>
-      <div style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 320, marginBottom: 24 }}>
-        Sua assinatura está inativa. Entre em contato com o administrador para reativar o acesso.
-      </div>
-      <button onClick={logout} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--card)', border: '1.5px solid var(--border)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
-        Sair
-      </button>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: 'var(--accent)', marginBottom: 8 }}>ACESSO BLOQUEADO</div>
+      <div style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 320, marginBottom: 24 }}>Sua assinatura está inativa. Entre em contato com o administrador para reativar o acesso.</div>
+      <button onClick={logout} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--card)', border: '1.5px solid var(--border)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Sair</button>
       <BotaoWhatsApp />
     </div>
   );
@@ -375,7 +340,6 @@ function BlockedScreen() {
 
 function AppGate() {
   const { currentUser, userProfile, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
-
   if (!currentUser) return <AuthPage />;
   if (currentUser && !userProfile) return <LoadingScreen />;
   if (isSuperAdmin) return <AppInner />;
@@ -390,11 +354,8 @@ function RootRouter() {
   const path = window.location.pathname;
   if (path === '/landing') return <Landing />;
   if (path === '/cadastro') return (
-    <AuthProvider>
-      <Cadastro />
-    </AuthProvider>
+    <AuthProvider><Cadastro /></AuthProvider>
   );
-
   return (
     <AuthProvider>
       <ToastProvider>

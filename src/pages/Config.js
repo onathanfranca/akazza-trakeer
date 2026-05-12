@@ -199,7 +199,7 @@ export default function Config({ config, saveConfig, casas, saveCasa, addCasa, r
       </div>
 
       {/* Notificações Pushcut */}
-      <div className="config-box" style={{ marginTop: 16 }}>
+      <div id="onb-pushcut" className="config-box" style={{ marginTop: 16 }}>
         <div className="config-title">🔔 NOTIFICAÇÕES (PUSHCUT)</div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
           Receba alertas no iPhone quando CPAs forem aprovados ou rejeitados.{' '}
