@@ -98,6 +98,18 @@ export default function Landing() {
         .lp-cta { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; animation: lpFadeUp 0.6s 0.3s ease both; }
         @keyframes lpFadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
 
+        .lp-trial-note {
+          animation: lpFadeUp 0.6s 0.4s ease both;
+          margin-top: 1.25rem;
+          font-size: 0.82rem;
+          color: var(--lp-muted);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          justify-content: center;
+        }
+        .lp-trial-note strong { color: var(--lp-gold); font-weight: 600; }
+
         .lp-btn-primary {
           display: inline-block; background: var(--lp-gold); color: #0a0a0a;
           text-decoration: none; font-weight: 700; font-size: 0.88rem;
@@ -210,7 +222,14 @@ export default function Landing() {
         .lp-pricing-currency { font-size: 1rem; font-weight: 500; color: var(--lp-muted); margin-top: 10px; }
         .lp-pricing-amount { font-family: 'Bebas Neue', sans-serif; font-size: 4rem; letter-spacing: 0.02em; color: var(--lp-gold); line-height: 1; }
         .lp-pricing-cents { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--lp-gold); margin-top: 10px; }
-        .lp-pricing-period { font-size: 0.85rem; color: var(--lp-muted); margin-bottom: 2rem; }
+        .lp-pricing-period { font-size: 0.85rem; color: var(--lp-muted); margin-bottom: 0.75rem; }
+        .lp-pricing-trial {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: rgba(76,175,125,0.1); border: 1px solid rgba(76,175,125,0.25);
+          border-radius: 8px; padding: 7px 12px;
+          font-size: 0.82rem; font-weight: 600; color: #4caf7d;
+          margin-bottom: 1.5rem; width: 100%;
+        }
         .lp-pricing-divider { height: 1px; background: var(--lp-border); margin: 1.5rem 0; }
         .lp-pricing-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 0.9rem; font-size: 0.9rem; color: var(--lp-muted); }
         .lp-pricing-check { width: 18px; height: 18px; border-radius: 50%; background: rgba(76,175,125,0.15); border: 1px solid rgba(76,175,125,0.3); display: flex; align-items: center; justify-content: center; font-size: 0.62rem; color: #4caf7d; flex-shrink: 0; margin-top: 2px; }
@@ -223,6 +242,8 @@ export default function Landing() {
         .lp-cta-section h2 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.5rem, 6vw, 4.5rem); letter-spacing: 0.02em; margin-bottom: 0.75rem; }
         .lp-cta-section h2 em { font-style: normal; color: var(--lp-gold); }
         .lp-cta-section p { color: var(--lp-muted); font-size: 1rem; font-weight: 300; margin-bottom: 2.5rem; line-height: 1.7; }
+        .lp-cta-trial { margin-top: 1.25rem; font-size: 0.82rem; color: var(--lp-muted); }
+        .lp-cta-trial strong { color: var(--lp-gold); }
 
         .lp-footer { position: relative; z-index: 1; text-align: center; padding: 2rem; border-top: 1px solid var(--lp-border); font-size: 0.78rem; color: var(--lp-dim); }
         .lp-footer span { color: var(--lp-gold); }
@@ -243,13 +264,14 @@ export default function Landing() {
 
         <nav className="lp-nav">
           <div className="lp-nav-logo">&#9889; AKAZZA <span>TRACKER</span></div>
+          <a href="/cadastro" className="lp-btn-nav">Testar grátis</a>
         </nav>
 
         {/* HERO */}
         <section className="lp-hero">
           <div className="lp-badge">
             <div className="lp-badge-dot" />
-            Plataforma para gestores de CPAs
+            🎁 7 dias grátis — sem cartão
           </div>
           <h1>VOCÊ NO<br />CONTROLE DE<br /><em>TUDO</em></h1>
           <p>
@@ -257,14 +279,17 @@ export default function Landing() {
             O Akazza Tracker foi feito pra quem gerencia subafiliados de verdade.
           </p>
           <div className="lp-cta">
-            <a href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ" className="lp-btn-primary">Quero assinar</a>
+            <a href="/cadastro" className="lp-btn-primary">Começar teste grátis</a>
             <a href="#lp-como-funciona" className="lp-btn-ghost">Como funciona</a>
+          </div>
+          <div className="lp-trial-note">
+            🔒 <strong>7 dias grátis</strong>, sem precisar colocar cartão. Depois R$ 67,90/mês.
           </div>
         </section>
 
         {/* STATS */}
         <div className="lp-stats lp-reveal">
-          <div className="lp-stat"><div className="lp-stat-num">100%</div><div className="lp-stat-label">Controle em tempo real</div></div>
+          <div className="lp-stat"><div className="lp-stat-num">7</div><div className="lp-stat-label">Dias grátis pra testar</div></div>
           <div className="lp-stat"><div className="lp-stat-num">PWA</div><div className="lp-stat-label">Instale no celular</div></div>
           <div className="lp-stat"><div className="lp-stat-num">AUTO</div><div className="lp-stat-label">Aprovação automática</div></div>
           <div className="lp-stat"><div className="lp-stat-num">CSV</div><div className="lp-stat-label">Export de fechamentos</div></div>
@@ -392,11 +417,11 @@ export default function Landing() {
           <span className="lp-section-label">Como funciona</span>
           <div className="lp-section-title">SEM MISTÉRIO</div>
           <div className="lp-section-sub">
-            Em menos de 10 minutos você já está operando.
+            Em menos de 5 minutos você já está operando — de graça.
           </div>
           <div className="lp-steps">
             {[
-              { n:1, title:'Assina e cria sua conta', desc:'Você assina, cria seu painel de admin e cadastra as casas com os valores de CPA que você paga.' },
+              { n:1, title:'Cria sua conta grátis', desc:'Sem cartão, sem burocracia. Preenche nome, email e senha e já entra no painel com 7 dias de acesso total.' },
               { n:2, title:'Convida seus subafiliados', desc:'Gera o link de convite no painel e manda pro seu time. Cada um entra e já vê só o que é dele.' },
               { n:3, title:'Eles registram, você aprova', desc:'Cada CPA entra com o comprovante. Você vê em tempo real e aprova com um toque.' },
               { n:4, title:'Fecha, exporta e paga', desc:'No fim do período você gera o fechamento, exporta o CSV e tem tudo documentado pra pagar certinho.' },
@@ -421,6 +446,9 @@ export default function Landing() {
               <span className="lp-pricing-cents">,90</span>
             </div>
             <div className="lp-pricing-period">por mês, cancele quando quiser</div>
+            <div className="lp-pricing-trial">
+              🎁 Começa com 7 dias grátis — sem cartão de crédito
+            </div>
             <div className="lp-pricing-divider" />
             {[
               'Subafiliados ilimitados',
@@ -437,8 +465,8 @@ export default function Landing() {
                 <span>{item}</span>
               </div>
             ))}
-            <a href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ" className="lp-btn-pricing">Assinar agora</a>
-            <div className="lp-pricing-note">Pagamento seguro via Lowify</div>
+            <a href="/cadastro" className="lp-btn-pricing">Começar 7 dias grátis</a>
+            <div className="lp-pricing-note">Sem cartão agora · Pagamento seguro via Lowify</div>
           </div>
         </section>
 
@@ -446,9 +474,12 @@ export default function Landing() {
         <section className="lp-cta-section lp-reveal">
           <h2>CHEGA DE<br /><em>PLANILHA</em></h2>
           <p>
-            Você já sabe o que precisa. Assina agora e começa a usar hoje mesmo.
+            Você já sabe o que precisa. Cria sua conta agora e usa de graça por 7 dias.
           </p>
-          <a href="https://pay.lowify.com.br/checkout.php?product_id=WsYxbQ" className="lp-btn-primary">Assinar por R$ 67,90/mês</a>
+          <a href="/cadastro" className="lp-btn-primary">Começar teste grátis — sem cartão</a>
+          <div className="lp-cta-trial">
+            Depois do teste: <strong>R$ 67,90/mês</strong>, cancele quando quiser.
+          </div>
         </section>
 
         <footer className="lp-footer">
