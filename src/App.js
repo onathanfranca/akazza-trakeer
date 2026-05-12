@@ -99,6 +99,38 @@ function usePendentesCount(isAdmin, tenantId) {
   return count;
 }
 
+function LoadingScreen() {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#0a0a0a',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'column',
+      gap: 16,
+    }}>
+      <div style={{
+        fontFamily: 'Bebas Neue, sans-serif',
+        fontSize: 28,
+        letterSpacing: 4,
+        color: '#C9A84C',
+      }}>
+        ⚡ AKAZZA TRACKER
+      </div>
+      <div style={{
+        width: 40,
+        height: 40,
+        border: '3px solid rgba(201,168,76,0.2)',
+        borderTop: '3px solid #C9A84C',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+      }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 function AppInner() {
   const { currentUser, userProfile, logout, isAdmin, isSuperAdmin, tenantId } = useAuth();
   const { users, updateRole, removeUser } = useUsers(tenantId);
@@ -323,8 +355,8 @@ function AppGate() {
 
   if (!currentUser) return <AuthPage />;
 
-  // ← CORREÇÃO: espera o perfil carregar antes de decidir a tela
-  if (currentUser && !userProfile) return null;
+  // Espera o perfil carregar antes de decidir a tela
+  if (currentUser && !userProfile) return <LoadingScreen />;
 
   if (isSuperAdmin) return <AppInner />;
   if (!tenantAtivo) {
