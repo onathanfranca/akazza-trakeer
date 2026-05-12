@@ -5,6 +5,8 @@ import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/
 import { db } from '../firebase/config';
 import { useFechamentos } from '../hooks/useAdmin';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { registrarLog } from '../utils/logs';
 
 function today() { return format(new Date(), 'yyyy-MM-dd'); }
 function daysAgo(n) { return format(subDays(new Date(), n), 'yyyy-MM-dd'); }
@@ -46,6 +48,7 @@ function exportarCSV(fechamentos, nomeAfiliado = null) {
 
 export default function Fechamento({ users, casas, tenantId }) {
   const { showToast } = useToast();
+  const { currentUser, userProfile } = useAuth();
   const { fechamentos, loading: loadingFech, criarFechamento, deletarFechamento } = useFechamentos(tenantId);
 
   const [selectedUid, setSelectedUid] = useState('');
@@ -104,6 +107,12 @@ export default function Fechamento({ users, casas, tenantId }) {
     setSalvando(true);
     try {
       await criarFechamento({ ...preview, valorPago: Number(valorPago), observacao });
+      await registrarLog(tenantId, {
+        uid: currentUser.uid,
+        nome: userProfile?.nome || '',
+        acao: 'fechamento_criado',
+        detalhe: `${preview.nomeAfiliado} — ${preview.totalCPAs} CPAs — R$ ${Number(valorPago).toLocaleString('pt-BR')}`,
+      });
       showToast('✅ Fechamento registrado!', 'green');
       setPreview(null); setValorPago(''); setObservacao(''); setSelectedUid('');
     } catch (err) {

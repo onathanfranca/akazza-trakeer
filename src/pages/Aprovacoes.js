@@ -3,6 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { registrarLog } from '../utils/logs';
 import { ComprovanteThumbnail, ComprovanteViewer, getComprovantesNormalizados } from '../components/Comprovantes';
 import { format } from 'date-fns';
 
@@ -15,6 +17,7 @@ function fmtVal(n) { return `R$ ${Number(Math.abs(n || 0)).toLocaleString('pt-BR
 
 export default function Aprovacoes({ casas, users, tenantId }) {
   const { showToast } = useToast();
+  const { currentUser, userProfile } = useAuth();
   const [cpas, setCpas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('pendente');
@@ -56,7 +59,14 @@ export default function Aprovacoes({ casas, users, tenantId }) {
   async function aprovar(id) {
     setSalvando(true);
     try {
+      const cpa = cpas.find(c => c.id === id);
       await updateDoc(doc(db, 'cpas', id), { status: 'aprovado', motivoRejeicao: null });
+      await registrarLog(tenantId, {
+        uid: currentUser.uid,
+        nome: userProfile?.nome || '',
+        acao: 'cpa_aprovado',
+        detalhe: `${cpa?.player || 'sem depositante'} — ${cpa?.casa || ''}`,
+      });
       showToast('✅ CPA aprovado!', 'green');
     } catch { showToast('Erro ao aprovar.', 'red'); }
     setSalvando(false);
@@ -66,7 +76,14 @@ export default function Aprovacoes({ casas, users, tenantId }) {
     if (!motivo.trim()) { showToast('⚠️ Informe o motivo da rejeição!', 'yellow'); return; }
     setSalvando(true);
     try {
+      const cpa = cpas.find(c => c.id === id);
       await updateDoc(doc(db, 'cpas', id), { status: 'rejeitado', motivoRejeicao: motivo.trim() });
+      await registrarLog(tenantId, {
+        uid: currentUser.uid,
+        nome: userProfile?.nome || '',
+        acao: 'cpa_rejeitado',
+        detalhe: `${cpa?.player || 'sem depositante'} — ${cpa?.casa || ''} | Motivo: ${motivo.trim()}`,
+      });
       showToast('❌ CPA rejeitado.', 'red');
       setRejeitandoId(null);
       setMotivo('');

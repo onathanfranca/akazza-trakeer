@@ -157,3 +157,22 @@ export function useFechamentos(tenantId, uid = null) {
 
   return { fechamentos, loading, criarFechamento, deletarFechamento };
 }
+export function useLogs(tenantId) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    const q = query(
+      collection(db, 'logs', tenantId, 'entries'),
+      orderBy('criadoEm', 'desc')
+    );
+    const unsub = onSnapshot(q, snap => {
+      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return unsub;
+  }, [tenantId]);
+
+  return { logs, loading };
+}

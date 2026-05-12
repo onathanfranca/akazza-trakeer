@@ -2,23 +2,41 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { registrarLog } from '../utils/logs';
 import AfiliadoPerfil from './AfiliadoPerfil';
 
 export default function Equipe({ users, updateRole, removeUser, aprovarAfiliado, recusarAfiliado, casas }) {
   const { showToast } = useToast();
+  const { tenantId, currentUser, userProfile } = useAuth();
   const [selectedUser, setSelectedUser] = useState(null);
 
   const pendentes = users.filter(u => u.role === 'afiliado' && u.status === 'pendente');
 
   async function handleAprovar(u) {
-    try { await aprovarAfiliado(u.uid); showToast(`✅ ${u.nome} aprovado!`, 'green'); }
-    catch { showToast('Erro ao aprovar.', 'red'); }
+    try {
+      await aprovarAfiliado(u.uid);
+      await registrarLog(tenantId, {
+        uid: currentUser.uid,
+        nome: userProfile?.nome || '',
+        acao: 'afiliado_aprovado',
+        detalhe: `${u.nome} (${u.email})`,
+      });
+      showToast(`✅ ${u.nome} aprovado!`, 'green');
+    } catch { showToast('Erro ao aprovar.', 'red'); }
   }
 
   async function handleRecusar(u) {
     if (!window.confirm(`Recusar ${u.nome}?`)) return;
-    try { await recusarAfiliado(u.uid); showToast(`${u.nome} recusado.`, 'yellow'); }
-    catch { showToast('Erro ao recusar.', 'red'); }
+    try {
+      await recusarAfiliado(u.uid);
+      await registrarLog(tenantId, {
+        uid: currentUser.uid,
+        nome: userProfile?.nome || '',
+        acao: 'afiliado_recusado',
+        detalhe: `${u.nome} (${u.email})`,
+      });
+      showToast(`${u.nome} recusado.`, 'yellow');
+    } catch { showToast('Erro ao recusar.', 'red'); }
   }
 
   async function handleRemoveUser(uid, nome) {

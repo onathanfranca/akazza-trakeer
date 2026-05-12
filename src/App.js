@@ -20,6 +20,7 @@ import Aprovacoes from './pages/Aprovacoes';
 import Links from './pages/Links';
 import MeusFechamentos from './pages/MeusFechamentos';
 import SuperAdmin from './pages/SuperAdmin';
+import Historico from './pages/Historico';
 
 import './styles/global.css';
 
@@ -175,13 +176,14 @@ function AppInner() {
 
   const ADMIN_TABS = [
     { id: 'admin', label: '📊 Painel Geral' },
-    { id: 'ranking', label: '🏆 Ranking' },
     { id: 'aprovacoes', label: '✅ Aprovações' },
     { id: 'meu', label: '🏠 Meu Painel' },
-    { id: 'equipe', label: '👥 Equipe' },
+    { id: 'ranking', label: '🏆 Ranking' },
     { id: 'links', label: '🔗 Links' },
-    { id: 'config', label: '⚙️ Config' },
+    { id: 'equipe', label: '👥 Equipe' },
+    { id: 'historico', label: '📜 Histórico' },
     { id: 'fechamento', label: '💰 Fechamentos' },
+    { id: 'config', label: '⚙️ Config' },
     { id: 'perfil', label: '👤 Perfil' },
     ...(isSuperAdmin ? [{ id: 'superadmin', label: '🌐 Super Admin' }] : []),
   ];
@@ -262,6 +264,7 @@ function AppInner() {
         {tab === 'meu' && <MeuPainel casas={casas} metaDiaria={config.metaDiaria} tenantId={tenantId} />}
         {tab === 'links' && <Links casas={casas} />}
         {tab === 'equipe' && isAdmin && <Equipe users={users} updateRole={updateRole} removeUser={removeUser} aprovarAfiliado={aprovarAfiliado} recusarAfiliado={recusarAfiliado} casas={casas} />}
+        {tab === 'historico' && isAdmin && <Historico />}
         {tab === 'config' && isAdmin && <Config config={config} saveConfig={saveConfig} casas={casas} saveCasa={saveCasa} addCasa={addCasa} removeCasa={removeCasa} />}
         {tab === 'fechamento' && isAdmin && <Fechamento users={users} casas={casas} tenantId={tenantId} />}
         {tab === 'meusfechamentos' && !isAdmin && <MeusFechamentos tenantId={tenantId} />}

@@ -8,6 +8,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
+import { registrarLog } from '../utils/logs';
 
 function compressImage(file) {
   return new Promise((resolve) => {
@@ -114,7 +115,7 @@ export function useCPAs(uid, dateFrom, dateTo, tenantId, onNewCPA = null) {
     return unsub;
   }, [uid, dateFrom, dateTo, tenantId]);
 
-  async function addCPA(casa, player = '', imagensBase64 = [], valorCPA = 0, valorDeposito = 0) {
+  async function addCPA(casa, player = '', imagensBase64 = [], valorCPA = 0, valorDeposito = 0, nomeUsuario = '') {
     const autoAprovado = await getAprovacaoAutomatica(tenantId);
     const status = autoAprovado ? 'aprovado' : 'pendente';
 
@@ -136,6 +137,13 @@ export function useCPAs(uid, dateFrom, dateTo, tenantId, onNewCPA = null) {
       );
       await updateDoc(docRef, { comprovantes: resultados });
     }
+
+    await registrarLog(tenantId, {
+      uid,
+      nome: nomeUsuario,
+      acao: 'cpa_registrado',
+      detalhe: `${player || 'sem depositante'} — ${casa}${status === 'pendente' ? ' (aguardando aprovação)' : ''}`,
+    });
 
     return docRef;
   }
