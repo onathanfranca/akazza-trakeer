@@ -319,9 +319,13 @@ function BlockedScreen() {
 }
 
 function AppGate() {
-  const { currentUser, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
+  const { currentUser, userProfile, tenantAtivo, isAdmin, isSuperAdmin } = useAuth();
 
   if (!currentUser) return <AuthPage />;
+
+  // ← CORREÇÃO: espera o perfil carregar antes de decidir a tela
+  if (currentUser && !userProfile) return null;
+
   if (isSuperAdmin) return <AppInner />;
   if (!tenantAtivo) {
     if (isAdmin) return <AssinaturaScreen />;
